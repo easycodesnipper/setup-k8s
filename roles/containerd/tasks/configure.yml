@@ -1,0 +1,28 @@
+- name: Create containerd configuration directory
+  file:
+    path: /etc/containerd
+    state: directory
+    mode: '0755'
+
+- name: Generate default containerd config
+  command: containerd config default
+  register: containerd_config
+  notify: Restart containerd
+
+- name: Write default containerd config
+  copy:
+    content: |
+      {{ containerd_config.stdout }}
+    dest: /etc/containerd/config.toml
+    mode: '0644'
+  notify: Restart containerd
+  when: containerd_config is defined
+
+- name: Configure cgroup drivers
+  lineinfile:
+    path: /etc/containerd/config.toml
+    regexp: '^(\s+)(SystemdCgroup\s*=)'
+    line: '            SystemdCgroup = true'
+    backrefs: yes
+  notify: Restart containerd
+  register: cgroup_config_changed

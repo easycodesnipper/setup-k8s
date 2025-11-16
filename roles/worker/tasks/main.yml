@@ -1,0 +1,35 @@
+---
+- name: Check if node is already joined to cluster
+  shell: "kubectl get node {{ inventory_hostname }} >/dev/null"
+  delegate_to: "{{ groups['masters'][0] }}"
+  environment:
+      KUBECONFIG: /etc/kubernetes/admin.conf
+  register: node_check_result
+  changed_when: false
+  ignore_errors: true
+  tags: worker
+
+- block:
+  - name: Get join command from master
+    slurp:
+      src: /tmp/join-command.sh
+    delegate_to: "{{ groups['masters'][0] }}"
+    register: join_command_file
+    failed_when: false
+
+  - name: Join worker to cluster
+    command: "{{ join_command_file.content | b64decode }}"
+  when: node_check_result.rc != 0
+  tags: worker
+
+- name: Wait for node to be ready
+  command: >
+    kubectl wait --for=condition=Ready node/{{ inventory_hostname }} --timeout=60s
+  delegate_to: "{{ groups['masters'][0] }}"
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: wait_result
+  retries: 3
+  delay: 10
+  until: wait_result.rc == 0
+  tags: wait-node-ready

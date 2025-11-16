@@ -1,0 +1,15 @@
+---
+- name: Remount filesystems
+  command: mount -a
+  become: yes
+  changed_when: false
+  register: mount_result
+  failed_when: mount_result.rc != 0
+
+- name: Reload sysctl
+  command: sysctl --system
+  become: yes
+  changed_when: false
+  register: sysctl_result
+  failed_when: sysctl_result.rc != 0
+  

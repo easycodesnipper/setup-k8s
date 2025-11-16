@@ -1,0 +1,41 @@
+---
+- name: Check if containerd is already installed
+  shell: "command -v containerd >/dev/null && containerd --version"
+  register: containerd_version_check
+  changed_when: false
+  ignore_errors: true
+  tags: containerd
+
+- block:
+  - name: Install required packages
+    package:
+      name: "{{ system_required_packages[ansible_os_family] }}"
+      state: present
+      update_cache: true
+
+  - name: Setup Docker's repository
+    include_tasks:
+      file: setup-repo-{{ ansible_os_family | lower }}.yml
+
+  - name: Install containerd
+    package:
+      name: containerd.io
+      state: present
+    retries: 3
+    delay: 10
+    register: result
+    until: result is succeeded
+
+  - name: Configure containerd
+    include_tasks:
+      file: configure.yml
+  when: containerd_version_check.rc != 0
+  tags: containerd
+
+- name: Start and enable containerd service
+  systemd:
+    name: containerd
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  tags: containerd

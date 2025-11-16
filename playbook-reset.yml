@@ -1,0 +1,75 @@
+---
+- name: Reset Kubernetes cluster - Drain nodes and cleanup
+  hosts: masters
+  become: yes
+  gather_facts: yes
+  tasks:
+    - name: Get list of worker nodes
+      command: kubectl get nodes --no-headers -o custom-columns=":metadata.name"
+      register: nodes_list
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      ignore_errors: yes
+
+    - name: Drain worker nodes
+      command: "kubectl drain {{ item }} --delete-emptydir-data --ignore-daemonsets --force --timeout=60s"
+      loop: "{{ nodes_list.stdout_lines | select('match', 'worker') | list }}"
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      ignore_errors: yes
+      when: nodes_list.stdout_lines | length > 0
+
+    - name: Delete worker nodes from cluster
+      command: "kubectl delete node {{ item }}"
+      loop: "{{ nodes_list.stdout_lines | select('match', 'worker') | list }}"
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      ignore_errors: yes
+      when: nodes_list.stdout_lines | length > 0
+
+- name: Reset kubeadm on all nodes
+  hosts: k8s_cluster
+  become: yes
+  tasks:
+    - name: Reset kubeadm
+      command: kubeadm reset -f
+      ignore_errors: yes
+      register: kubeadm_reset
+
+    - name: Remove kubeadm config files
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/kubernetes
+        - /var/lib/etcd
+        - /var/lib/kubelet
+        - /var/lib/cni
+        - /etc/cni
+        - $HOME/.kube
+
+    - name: Clean up iptables rules
+      command: iptables -F && iptables -t nat -F && iptables -t mangle -F && iptables -X
+      ignore_errors: yes
+
+    - name: Clean up IPVS rules
+      command: ipvsadm --clear
+      ignore_errors: yes
+
+    - name: Remove CNI config files
+      file:
+        path: /etc/cni/net.d
+        state: absent
+
+    - name: Remove flannel interface
+      command: ip link delete cni0
+      ignore_errors: yes
+
+    - name: Clean up systemd services
+      systemd:
+        name: "{{ item }}"
+        state: stopped
+        enabled: no
+        daemon_reload: yes
+      loop:
+        - kubelet

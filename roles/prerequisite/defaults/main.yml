@@ -1,0 +1,11 @@
+---
+# Kernel modules
+k8s_kernel_modules:
+  - overlay
+  - br_netfilter
+
+# Sysctl settings
+k8s_sysctl_settings:
+  net.ipv4.ip_forward: 1
+  net.bridge.bridge-nf-call-ip6tables: 1
+  net.bridge.bridge-nf-call-iptables: 1

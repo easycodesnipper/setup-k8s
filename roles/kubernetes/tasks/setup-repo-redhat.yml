@@ -1,0 +1,15 @@
+---
+- name: Add Kubernetes YUM repository
+  shell: |
+    # Refer to https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
+    # This overwrites any existing configuration in /etc/yum.repos.d/kubernetes.repo
+    cat <<EOF | tee /etc/yum.repos.d/kubernetes.repo
+    [kubernetes]
+    name=Kubernetes
+    baseurl=https://pkgs.k8s.io/core:/stable:/v{{ k8s_major_minor }}/rpm/
+    enabled=1
+    gpgcheck=1
+    gpgkey=https://pkgs.k8s.io/core:/stable:/v{{ k8s_major_minor }}/rpm/repodata/repomd.xml.key
+    exclude=kubelet kubeadm kubectl cri-tools kubernetes-cni
+    EOF
+  become: yes

@@ -1,0 +1,89 @@
+---
+- name: Check if prerequisite setup was already completed
+  stat:
+    path: /var/log/k8s-prerequisites-done
+  register: prereq_done
+  tags: prereq
+
+- block:
+  - name: Disable all swap devices
+    command: swapoff -a
+    become: yes
+    tags: swap
+
+  - name: Comment out swap entries in /etc/fstab
+    lineinfile:
+      path: /etc/fstab
+      regexp: '^\s*.*\sswap\s+'
+      line: '#\g<0>'
+      backrefs: yes
+      state: present
+    become: yes
+    notify: Remount filesystems
+    tags: swap
+
+  - name: Load required kernel modules
+    modprobe:
+      name: "{{ item }}"
+      state: present
+    loop: "{{ k8s_kernel_modules }}"
+    become: yes
+    tags: kernel
+
+  - name: Ensure kernel modules load on boot
+    lineinfile:
+      path: /etc/modules-load.d/k8s.conf
+      line: "{{ item }}"
+      create: yes
+      owner: root
+      group: root
+      mode: 0644
+    loop: "{{ k8s_kernel_modules }}"
+    become: yes
+    notify: Reload sysctl
+    tags: kernel
+
+  - name: Ensure sysctl settings are applied
+    sysctl:
+      name: "{{ item.key }}"
+      value: "{{ item.value }}"
+      state: present
+      reload: no  # handle reload via handler
+    loop: "{{ k8s_sysctl_settings | dict2items }}"
+    become: yes
+    tags: sysctl
+
+  - name: Configure Kubernetes sysctl parameters
+    template:
+      src: k8s.conf.j2
+      dest: /etc/sysctl.d/k8s.conf
+      owner: root
+      group: root
+      mode: 0644
+    become: yes
+    notify: Reload sysctl
+    tags: sysctl
+
+  - name: Configure Kubernetes cluster hosts in /etc/hosts
+    blockinfile:
+      path: /etc/hosts
+      insertafter: EOF
+      create: true
+      # The 'marker' helps manage the block and makes it easy to remove later
+      marker: "# {mark} ANSIBLE MANAGED BLOCK - K8S HOSTS MAPPING"
+      block: |
+        {% for host in groups['k8s_cluster'] %}
+        {{ hostvars[host].ansible_host }} {{ host }}
+        {% endfor %}
+    tags: host-mapping
+  
+  - name: Create flag file to indicate prerequisites are done
+    copy:
+      content: "Kubernetes prerequisites setup completed on {{ ansible_date_time.iso8601 }}"
+      dest: /var/log/k8s-prerequisites-done
+      owner: root
+      group: root
+      mode: 0644
+    become: yes
+  when: not prereq_done.stat.exists
+  tags: prereq

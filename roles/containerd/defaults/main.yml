@@ -1,0 +1,9 @@
+---
+required_packages:
+  Debian:
+    - apt-transport-https
+    - ca-certificates
+    - curl
+    - gpg
+  RedHat:
+    - dnf-plugins-core

@@ -1,0 +1,20 @@
+---
+- name: Configure all Kubernetes nodes
+  hosts: k8s_cluster
+  become: yes
+  roles:
+    - prerequisite
+    - containerd
+    - kubernetes
+
+- name: Initialize Kubernetes master
+  hosts: masters
+  become: yes
+  roles:
+    - master
+
+- name: Join worker nodes to cluster
+  hosts: workers
+  become: yes
+  roles:
+    - worker

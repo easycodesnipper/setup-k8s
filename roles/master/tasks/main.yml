@@ -1,0 +1,83 @@
+---
+- name: Check if Kubernetes cluster is already initialized
+  stat:
+    path: /etc/kubernetes/admin.conf
+  register: kubeadm_initialized
+  tags: master
+
+- block:
+  - name: Pull Kubernetes images
+    command: >
+      kubeadm config images pull
+      --kubernetes-version={{ k8s_version }}
+      --v={{ k8s_verbosity }}
+    become: yes
+
+  - name: Initialize Kubernetes cluster
+    command: >
+      kubeadm init
+      --control-plane-endpoint={{ k8s_api_server_endpoint }}
+      --pod-network-cidr={{ k8s_pod_network_cidr }}
+      --service-cidr={{ k8s_service_cidr }}
+      --upload-certs
+      --ignore-preflight-errors=Mem
+      --v={{ k8s_verbosity }}
+    become: yes
+    register: kubeadm_init
+    failed_when: 
+      - kubeadm_init.rc != 0
+      - '"cluster already exists" not in kubeadm_init.stderr'
+
+  - name: Create .kube directory
+    file:
+      path: /home/{{ ansible_user }}/.kube
+      state: directory
+      owner: "{{ ansible_user }}"
+      group: "{{ ansible_user }}"
+
+  - name: Copy admin config to user home
+    copy:
+      src: /etc/kubernetes/admin.conf
+      dest: /home/{{ ansible_user }}/.kube/config
+      remote_src: yes
+      owner: "{{ ansible_user }}"
+      group: "{{ ansible_user }}"
+
+  - name: Install Flannel network plugin
+    command: kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
+    environment:
+      KUBECONFIG: /etc/kubernetes/admin.conf
+
+  - name: Generate join command for workers
+    command: kubeadm token create --print-join-command
+    register: join_command
+    environment:
+      KUBECONFIG: /etc/kubernetes/admin.conf
+
+  - name: Save join command to file
+    copy:
+      content: "{{ join_command.stdout }}"
+      dest: /tmp/join-command.sh
+      mode: 0755
+
+  - name: Display join command
+    debug:
+      msg: "Worker join command: {{ join_command.stdout }}"
+
+  - name: Wait for cluster to be ready
+    command: kubectl get nodes
+    register: cluster_status
+    until: cluster_status.rc == 0
+    retries: 10
+    delay: 30
+    environment:
+      KUBECONFIG: /etc/kubernetes/admin.conf
+
+  - name: Install metrics server (optional)
+    command: |
+      kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+    environment:
+      KUBECONFIG: /etc/kubernetes/admin.conf
+    ignore_errors: yes
+  when: not kubeadm_initialized.stat.exists
+  tags: master

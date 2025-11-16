@@ -1,0 +1,36 @@
+---
+- name: Check if Kubernetes repository file exists
+  stat:
+    path: /etc/apt/sources.list.d/kubernetes.list
+  register: k8s_repo_file
+
+- block:
+  - name: Create Kubernetes keyring directory
+    file:
+      path: /etc/apt/keyrings
+      state: directory
+      mode: '0755'
+
+  - name: Download Kubernetes GPG key using curl
+    shell: |
+      curl -fsSL https://pkgs.k8s.io/core:/stable:/v{{ k8s_major_minor }}/deb/Release.key | gpg --yes --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+      chmod 0644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    args:
+      creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    retries: 3
+    delay: 5
+
+  - name: Add Kubernetes repository
+    blockinfile:
+      path: /etc/apt/sources.list.d/kubernetes.list
+      block: |
+        deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v{{ k8s_major_minor }}/deb/ /
+      marker: "# {mark} ANSIBLE MANAGED KUBERNETES REPO"
+      create: yes
+      backup: yes
+
+  - name: Force update apt package cache
+    apt:
+      update_cache: yes
+      force_apt_get: yes
+  when: not k8s_repo_file.stat.exists
