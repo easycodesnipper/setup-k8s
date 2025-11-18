@@ -66,3 +66,4 @@
         daemon_reload: yes
       loop:
         - kubelet
+      ignore_errors: yes
