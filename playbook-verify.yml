@@ -2,12 +2,12 @@
 - name: Verify Kubernetes cluster
   hosts: masters
   become: yes
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
   tasks:
     - name: Check node status
       command: kubectl get nodes -o wide
       register: node_status
-      environment:
-        KUBECONFIG: /etc/kubernetes/admin.conf
 
     - debug:
         var: node_status.stdout
@@ -15,8 +15,6 @@
     - name: Check pod status
       command: kubectl get pods --all-namespaces
       register: pod_status
-      environment:
-        KUBECONFIG: /etc/kubernetes/admin.conf
 
     - debug:
         var: pod_status.stdout
@@ -24,8 +22,6 @@
     - name: Check cluster health
       command: kubectl get componentstatuses
       register: cluster_health
-      environment:
-        KUBECONFIG: /etc/kubernetes/admin.conf
 
     - debug:
         var: cluster_health.stdout

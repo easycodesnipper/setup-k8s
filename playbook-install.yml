@@ -1,20 +1,31 @@
 ---
-- name: Configure all Kubernetes nodes
+- name: Prepare Kubernetes cluster
   hosts: k8s_cluster
   become: yes
   roles:
-    - prerequisite
-    - containerd
-    - kubernetes
+    - role: prerequisite
+      tags: prerequisite
+    - role: containerd
+      tags: containerd
+    - role: kubernetes
+      tags: kubernetes
+  tags: prepare
 
 - name: Initialize Kubernetes master
-  hosts: masters
   become: yes
+  hosts: masters
   roles:
     - master
+  tags: master
 
 - name: Join worker nodes to cluster
   hosts: workers
-  become: yes
   roles:
     - worker
+  tags: worker
+
+- name: Install Kubernetes plugins
+  hosts: masters
+  roles:
+    - plugin
+  tags: plugin

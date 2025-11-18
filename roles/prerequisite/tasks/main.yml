@@ -1,14 +1,23 @@
 ---
 - name: Check if prerequisite setup was already completed
   stat:
-    path: /var/log/k8s-prerequisites-done
+    path: "{{ k8s_prereq_completed_file }}"
   register: prereq_done
-  tags: prereq
 
 - block:
+  - name: Gather facts
+    setup:
+    when: ansible_os_family is not defined
+
+  - name: Mask dev-zram0.swap unit
+    systemd:
+      name: dev-zram0.swap
+      masked: yes
+      state: stopped
+    when: ansible_os_family == "RedHat"
+
   - name: Disable all swap devices
     command: swapoff -a
-    become: yes
     tags: swap
 
   - name: Comment out swap entries in /etc/fstab
@@ -18,7 +27,6 @@
       line: '#\g<0>'
       backrefs: yes
       state: present
-    become: yes
     notify: Remount filesystems
     tags: swap
 
@@ -27,7 +35,6 @@
       name: "{{ item }}"
       state: present
     loop: "{{ k8s_kernel_modules }}"
-    become: yes
     tags: kernel
 
   - name: Ensure kernel modules load on boot
@@ -39,7 +46,6 @@
       group: root
       mode: 0644
     loop: "{{ k8s_kernel_modules }}"
-    become: yes
     notify: Reload sysctl
     tags: kernel
 
@@ -48,9 +54,8 @@
       name: "{{ item.key }}"
       value: "{{ item.value }}"
       state: present
-      reload: no  # handle reload via handler
+      reload: yes
     loop: "{{ k8s_sysctl_settings | dict2items }}"
-    become: yes
     tags: sysctl
 
   - name: Configure Kubernetes sysctl parameters
@@ -60,7 +65,6 @@
       owner: root
       group: root
       mode: 0644
-    become: yes
     notify: Reload sysctl
     tags: sysctl
 
@@ -79,11 +83,9 @@
   
   - name: Create flag file to indicate prerequisites are done
     copy:
-      content: "Kubernetes prerequisites setup completed on {{ ansible_date_time.iso8601 }}"
-      dest: /var/log/k8s-prerequisites-done
+      content: "Kubernetes prerequisites setup completed"
+      dest: "{{ k8s_prereq_completed_file }}"
       owner: root
       group: root
       mode: 0644
-    become: yes
   when: not prereq_done.stat.exists
-  tags: prereq

@@ -4,12 +4,15 @@
   register: kubeadm_version_check
   changed_when: false
   ignore_errors: true
-  tags: kubernetes
 
 - block:
+  - name: Gather facts
+    setup:
+    when: ansible_os_family is not defined
+
   - name: Install required packages
     package:
-      name: "{{ system_required_packages[ansible_os_family] }}"
+      name: "{{ k8s_required_packages[ansible_os_family] }}"
       state: present
       update_cache: true
 
@@ -33,6 +36,7 @@
         - kubelet-{{ k8s_version }}
         - kubeadm-{{ k8s_version }}
         - kubectl-{{ k8s_version }}
+        - kubernetes-cni-{{ k8s_cni_version }}
       state: present
       disable_excludes: kubernetes
     when: ansible_os_family == "RedHat"
@@ -50,11 +54,11 @@
       executable: /bin/bash
     when: ansible_os_family == "RedHat"
 
-  - name: Start and enable kubelet service
-    systemd:
-      name: kubelet
-      state: started
-      enabled: yes
-      daemon_reload: yes
   when: kubeadm_version_check.rc != 0
-  tags: kubernetes
+
+- name: Start and enable kubelet service
+  systemd:
+    name: kubelet
+    state: started
+    enabled: yes
+    daemon_reload: yes

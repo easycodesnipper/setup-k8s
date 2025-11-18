@@ -3,7 +3,6 @@
   stat:
     path: /etc/kubernetes/admin.conf
   register: kubeadm_initialized
-  tags: master
 
 - block:
   - name: Pull Kubernetes images
@@ -11,7 +10,6 @@
       kubeadm config images pull
       --kubernetes-version={{ k8s_version }}
       --v={{ k8s_verbosity }}
-    become: yes
 
   - name: Initialize Kubernetes cluster
     command: >
@@ -22,7 +20,6 @@
       --upload-certs
       --ignore-preflight-errors=Mem
       --v={{ k8s_verbosity }}
-    become: yes
     register: kubeadm_init
     failed_when: 
       - kubeadm_init.rc != 0
@@ -43,41 +40,30 @@
       owner: "{{ ansible_user }}"
       group: "{{ ansible_user }}"
 
-  - name: Install Flannel network plugin
-    command: kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
-    environment:
-      KUBECONFIG: /etc/kubernetes/admin.conf
+  - name: Install CNI plugin
+    include_role:
+      name: cni
+      tasks_from: install-{{ k8s_cni | default('flannel')  }}
 
   - name: Generate join command for workers
     command: kubeadm token create --print-join-command
     register: join_command
-    environment:
-      KUBECONFIG: /etc/kubernetes/admin.conf
 
   - name: Save join command to file
     copy:
       content: "{{ join_command.stdout }}"
-      dest: /tmp/join-command.sh
+      dest: "{{ k8s_join_cmd_file }}"
       mode: 0755
 
   - name: Display join command
     debug:
       msg: "Worker join command: {{ join_command.stdout }}"
-
-  - name: Wait for cluster to be ready
-    command: kubectl get nodes
-    register: cluster_status
-    until: cluster_status.rc == 0
-    retries: 10
-    delay: 30
-    environment:
-      KUBECONFIG: /etc/kubernetes/admin.conf
-
-  - name: Install metrics server (optional)
-    command: |
-      kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-    environment:
-      KUBECONFIG: /etc/kubernetes/admin.conf
-    ignore_errors: yes
   when: not kubeadm_initialized.stat.exists
-  tags: master
+
+- name: Wait for cluster to be ready
+  command: kubectl get nodes
+  become: no
+  register: cluster_status
+  until: cluster_status.rc == 0
+  retries: 10
+  delay: 30

@@ -1,0 +1,8 @@
+---
+- name: Install Flannel network plugin
+  command: kubectl apply -f {{ k8s_flannel_manifest_file }}
+  become: no
+  register: flannel_result
+  until: flannel_result.rc == 0
+  retries: 3
+  delay: 10

@@ -7,9 +7,13 @@
   tags: containerd
 
 - block:
+  - name: Gather facts
+    setup:
+    when: ansible_os_family is not defined
+
   - name: Install required packages
     package:
-      name: "{{ system_required_packages[ansible_os_family] }}"
+      name: "{{ containerd_required_packages[ansible_os_family] }}"
       state: present
       update_cache: true
 

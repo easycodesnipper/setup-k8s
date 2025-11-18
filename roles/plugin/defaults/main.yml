@@ -1,0 +1,63 @@
+---
+k8s_metallb_ip_range: 
+  - "10.17.3.240-10.17.3.250"
+
+k8s_plugins:
+  metrics-server:
+    enabled: true
+    namespace: "kube-system"
+    manifest: "https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.8.0/components.yaml"
+    label: "k8s-app=metrics-server"
+    patch:
+      resource: "deployment/metrics-server"
+      data: |
+        {
+          "spec": {
+            "template": {
+              "spec": {
+                "containers": [{
+                  "name": "metrics-server",
+                  "args": [
+                    "--cert-dir=/tmp",
+                    "--secure-port=10250",
+                    "--kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname",
+                    "--kubelet-use-node-status-port",
+                    "--metric-resolution=15s",
+                    "--kubelet-insecure-tls"
+                  ]
+                }]
+              }
+            }
+          }
+        }
+  
+  local-path-provisioner:
+    enabled: true
+    namespace: "local-path-storage"
+    manifest: "https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.32/deploy/local-path-storage.yaml"
+    label: "app=local-path-provisioner"
+  
+  metallb:
+    enabled: true
+    namespace: "metallb-system"
+    manifest: "https://raw.githubusercontent.com/metallb/metallb/v0.13.12/config/manifests/metallb-native.yaml"
+    label: "app=metallb"
+    configuration:
+      data: |
+        apiVersion: metallb.io/v1beta1
+        kind: IPAddressPool
+        metadata:
+          name: default-pool
+          namespace: metallb-system
+        spec:
+          addresses: {{ k8s_metallb_ip_range }}
+        ---
+        apiVersion: metallb.io/v1beta1
+        kind: L2Advertisement
+        metadata:
+          name: default-l2-advertisement
+          namespace: metallb-system
+        spec:
+          ipAddressPools:
+          - default-pool
+      

@@ -1,12 +1,5 @@
 ---
-system_required_packages:
-  Debian:
-    - apt-transport-https
-    - ca-certificates
-    - curl
-    - gpg
-  RedHat:
-    - dnf-plugins-core
-
 k8s_version: "1.34.2"
 k8s_major_minor: "{{ (k8s_version.split('.') | list)[0:2] | join('.') }}"
+k8s_verbosity: 3
+k8s_join_cmd_file: /tmp/join-command.sh

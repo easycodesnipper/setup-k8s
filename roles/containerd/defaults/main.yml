@@ -1,9 +1,11 @@
 ---
-required_packages:
-  Debian:
-    - apt-transport-https
+containerd_required_packages:
+  Debian: 
+    # refer to https://docs.docker.com/engine/install/debian/
+    # refer to https://docs.docker.com/engine/install/ubuntu/
     - ca-certificates
     - curl
-    - gpg
-  RedHat:
+  RedHat: 
+    # refer to https://docs.docker.com/engine/install/centos/
+    # refer to https://docs.docker.com/engine/install/fedora/
     - dnf-plugins-core

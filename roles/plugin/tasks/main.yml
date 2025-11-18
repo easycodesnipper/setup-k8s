@@ -1,0 +1,48 @@
+---
+- name: Install Kubernetes plugins
+  command: |
+    kubectl apply -f {{ item.value.manifest }}
+  loop: "{{ k8s_plugins | dict2items }}"
+  when: item.value.enabled | bool
+  loop_control:
+    label: "Installing {{ item.key }}"
+  ignore_errors: yes
+
+- name: Patch plugins
+  command: |
+    kubectl patch {{ item.value.patch.resource }} -n {{ item.value.namespace | default('kube-system') }} -p '{{ item.value.patch.data }}'
+  loop: "{{ k8s_plugins | dict2items }}"
+  when: 
+    - item.value.enabled | bool
+    - item.value.patch is defined
+  loop_control:
+    label: "Patching {{ item.key }}"
+  ignore_errors: yes
+
+- name: Wait for plugins to be ready
+  command: |
+    kubectl wait --for=condition=ready pod -l {{ item.value.label }} 
+    -n {{ item.value.namespace | default('kube-system') }} 
+    --timeout=1m
+  loop: "{{ k8s_plugins | dict2items }}"
+  when: 
+    - item.value.enabled | bool
+  register: wait_result
+  retries: 3
+  delay: 10
+  until: wait_result.rc == 0
+  ignore_errors: yes
+
+- name: Apply configuration
+  command: |
+    kubectl apply -f -
+  args:
+    stdin: "{{ item.value.configuration.data }}"
+  loop: "{{ k8s_plugins | dict2items }}"
+  when: 
+    - item.value.enabled | bool
+    - item.value.configuration is defined
+    - item.value.configuration.data is defined
+  loop_control:
+    label: "Applying {{ item.key }}"
+  ignore_errors: yes
