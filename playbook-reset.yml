@@ -33,13 +33,15 @@
       file:
         path: "{{ item }}"
         state: absent
+        follow: no
       loop:
         - /etc/kubernetes
         - /var/lib/etcd
         - /var/lib/kubelet
         - /var/lib/cni
         - /etc/cni
-        - $HOME/.kube
+        - "{{ ansible_env.HOME }}/.kube"
+      when: item is not regex('/$')
 
     - name: Clean up iptables rules
       command: iptables -F && iptables -t nat -F && iptables -t mangle -F && iptables -X
