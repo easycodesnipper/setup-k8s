@@ -9,31 +9,47 @@ k8s_plugins:
     patch:
       resource: "deployment/metrics-server"
       data: |
-        {
-          "spec": {
-            "template": {
-              "spec": {
-                "containers": [{
-                  "name": "metrics-server",
-                  "args": [
-                    "--cert-dir=/tmp",
-                    "--secure-port=10250",
-                    "--kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname",
-                    "--kubelet-use-node-status-port",
-                    "--metric-resolution=15s",
-                    "--kubelet-insecure-tls"
-                  ]
-                }]
-              }
-            }
+        [
+          {
+            "op": "add",
+            "path": "/spec/template/spec/containers/0/args/-",
+            "value": "--kubelet-insecure-tls"
           }
-        }
+        ]
+
   # Local Path Provisioner to provision local storage
   local-path-provisioner:
     enabled: true
     namespace: "local-path-storage"
     manifest: "https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.32/deploy/local-path-storage.yaml"
     label: "app=local-path-provisioner"
+    patch:
+      resource: "configmap/local-path-config"
+      data: |
+        [
+          {
+            "op": "replace",
+            "path": "/data/config.json",
+            "value": "{\n  \"nodePathMap\": [\n    {\n      \"node\": \"DEFAULT_PATH_FOR_NON_LISTED_NODES\",\n      \"paths\": [\"{{ k8s_plugin_local_path_provisioner_default_path }}\"]\n    }\n  ]\n}"
+          }
+        ]
+    configuration:
+      # Reserve a default pvc with ReadWriteOnce access mode in default namespace
+      # local-path-provisioner limitation: only supports ReadWriteOnce and ReadWriteOncePod (1.22+) access 
+      data: |
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: local-path-pvc
+          namespace: default
+        spec:
+          accessModes:
+            - {{ k8s_plugin_local_path_provisioner_pvc_access_mode | default('ReadWriteOnce') }}
+          storageClassName: local-path
+          resources:
+            requests:
+              storage: {{ k8s_plugin_local_path_provisioner_pvc_request_size | default('10Gi') }}
+
   # MetalLB to provide load balancer
   metallb:
     enabled: true
@@ -48,7 +64,7 @@ k8s_plugins:
           name: default-pool
           namespace: metallb-system
         spec:
-          addresses: {{ k8s_metallb_ip_range }}
+          addresses: {{ k8s_plugin_metallb_ip_range }}
         ---
         apiVersion: metallb.io/v1beta1
         kind: L2Advertisement

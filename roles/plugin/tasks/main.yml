@@ -7,17 +7,22 @@
   loop_control:
     label: "Installing {{ item.key }}"
   ignore_errors: yes
+  tags: "plugins-install"
 
 - name: Patch plugins
   command: |
-    kubectl patch {{ item.value.patch.resource }} -n {{ item.value.namespace | default('kube-system') }} -p '{{ item.value.patch.data }}'
+    kubectl patch {{ item.value.patch.resource }} --type=json -n {{ item.value.namespace | default('kube-system') }} 
+    -p '{{ item.value.patch.data }}'
   loop: "{{ k8s_plugins | dict2items }}"
   when: 
     - item.value.enabled | bool
     - item.value.patch is defined
+  register: patch_result
+  changed_when: "'patched' in patch_result.stdout or 'no change' not in patch_result.stdout"
   loop_control:
     label: "Patching {{ item.key }}"
   ignore_errors: yes
+  tags: "plugins-patch"
 
 - name: Wait for plugins to be ready
   command: |
@@ -32,6 +37,7 @@
   delay: 10
   until: wait_result.rc == 0
   ignore_errors: yes
+  tags: "plugins-wait"
 
 - name: Apply configuration
   command: |
@@ -46,3 +52,4 @@
   loop_control:
     label: "Applying {{ item.key }}"
   ignore_errors: yes
+  tags: "plugins-cfg"
