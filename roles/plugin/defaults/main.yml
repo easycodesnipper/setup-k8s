@@ -1,8 +1,6 @@
 ---
-k8s_metallb_ip_range: 
-  - "10.17.3.240-10.17.3.250"
-
 k8s_plugins:
+  # Metrics Server to collect metrics(CPU, Memory, ...)
   metrics-server:
     enabled: true
     namespace: "kube-system"
@@ -30,13 +28,13 @@ k8s_plugins:
             }
           }
         }
-  
+  # Local Path Provisioner to provision local storage
   local-path-provisioner:
     enabled: true
     namespace: "local-path-storage"
     manifest: "https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.32/deploy/local-path-storage.yaml"
     label: "app=local-path-provisioner"
-  
+  # MetalLB to provide load balancer
   metallb:
     enabled: true
     namespace: "metallb-system"

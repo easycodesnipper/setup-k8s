@@ -1,27 +1,27 @@
 ---
 - name: Verify Kubernetes cluster
-  hosts: masters
-  become: yes
-  environment:
-    KUBECONFIG: /etc/kubernetes/admin.conf
+  hosts: controllers
   tasks:
     - name: Check node status
       command: kubectl get nodes -o wide
       register: node_status
 
-    - debug:
-        var: node_status.stdout
+    - name: Display node status
+      debug:
+        msg: "{{ node_status.stdout_lines }}"
 
     - name: Check pod status
       command: kubectl get pods --all-namespaces
       register: pod_status
 
-    - debug:
-        var: pod_status.stdout
+    - name: Display pod status
+      debug:
+        msg: "{{ pod_status.stdout_lines }}"
 
     - name: Check cluster health
       command: kubectl get componentstatuses
       register: cluster_health
 
-    - debug:
-        var: cluster_health.stdout
+    - name: Display cluster health
+      debug:
+        msg: "{{ cluster_health.stdout_lines }}"

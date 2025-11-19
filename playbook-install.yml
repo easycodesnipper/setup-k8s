@@ -11,21 +11,21 @@
       tags: kubernetes
   tags: prepare
 
-- name: Initialize Kubernetes master
+- name: Initialize Kubernetes cluster
   become: yes
-  hosts: masters
+  hosts: controllers
   roles:
-    - master
-  tags: master
+    - initialize
+  tags: initialize
 
 - name: Join worker nodes to cluster
   hosts: workers
   roles:
-    - worker
-  tags: worker
+    - join
+  tags: join
 
 - name: Install Kubernetes plugins
-  hosts: masters
+  hosts: controllers
   roles:
     - plugin
   tags: plugin
