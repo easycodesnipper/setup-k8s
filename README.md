@@ -93,10 +93,10 @@ flowchart LR
     
     subgraph Prepare[Prepare Kubernetes Cluster]
         direction LR
-        P1[prerequisite<br>k8s_cluster] --> P2[containerd<br>k8s_cluster] --> P3[kubernetes<br>k8s_cluster]
+        P1[Prerequisite<br>k8s_cluster] --> P2[Install containerd<br>k8s_cluster] --> P3[Install k8s components<br>k8s_cluster]
     end
     
-    Prepare --> I[initialize<br>controllers] --> J[join<br>workers] --> PL[plugin<br>controllers] --> End([End])
+    Prepare --> I[Initialize<br>controllers] --> J[Join<br>workers] --> PL[Install plugin<br>controllers] --> End([End])
     
     %% Color coding by host group
     classDef k8s_cluster fill:#e3f2fd,stroke:#1976d2
