@@ -93,7 +93,7 @@ flowchart LR
         P1[Prerequisite<br>k8s_cluster] --> P2[Install containerd<br>k8s_cluster] --> P3[Install k8s components<br>k8s_cluster]
     end
     
-    Prepare --> I[Initialize<br>controllers] --> J[Join<br>workers] --> PL[Install plugin<br>controllers] --> End([End])
+    Prepare --> I[Initialize<br>controllers] --> J[Join<br>workers] --> End([End])
     
     %% Color coding by host group
     classDef k8s_cluster fill:#e3f2fd,stroke:#1976d2
@@ -102,7 +102,7 @@ flowchart LR
     classDef prepare_box fill:none,stroke:#1976d2,stroke-width:3px
     
     class P1,P2,P3 k8s_cluster
-    class I,PL controllers
+    class I controllers
     class J workers
     class Prepare prepare_box
 ```
