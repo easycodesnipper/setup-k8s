@@ -4,7 +4,9 @@
     path: "{{ k8s_yum_repo_file }}"
   register: k8s_repo_file
 
-- block:
+- name: Setup Kubernetes repository
+  when: not k8s_repo_file.stat.exists
+  block:
     - name: Add Kubernetes YUM repository
       ansible.builtin.copy:
         dest: "{{ k8s_yum_repo_file }}"
@@ -18,8 +20,7 @@
           exclude=kubelet kubeadm kubectl cri-tools kubernetes-cni
         mode: "0644"
 
-    - name: Yum make cache
-      ansible.builtin.yum:
+    - name: Dnf make cache
+      ansible.builtin.dnf:
         update_cache: true
       ignore_errors: false
-  when: not k8s_repo_file.stat.exists

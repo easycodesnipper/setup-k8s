@@ -1,7 +1,7 @@
 ---
 - name: Prepare Kubernetes cluster
   hosts: k8s_cluster
-  become: yes
+  become: true
   roles:
     - role: prerequisite
       tags: prereq
@@ -12,7 +12,7 @@
   tags: prepare
 
 - name: Initialize Kubernetes cluster
-  become: yes
+  become: true
   hosts: controllers
   roles:
     - initialize

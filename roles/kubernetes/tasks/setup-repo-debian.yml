@@ -4,7 +4,9 @@
     path: /etc/apt/sources.list.d/kubernetes.list
   register: k8s_repo_file
 
-- block:
+- name: Setup Kubernetes repository
+  when: not k8s_repo_file.stat.exists
+  block:
     - name: Create Kubernetes keyring directory
       ansible.builtin.file:
         path: /etc/apt/keyrings
@@ -14,7 +16,8 @@
     - name: Download Kubernetes GPG key
       ansible.builtin.shell: |
         set -o pipefail
-        curl -fsSL https://pkgs.k8s.io/core:/stable:/v{{ k8s_major_minor }}/deb/Release.key | gpg --yes --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        curl -fsSL https://pkgs.k8s.io/core:/stable:/v{{ k8s_major_minor }}/deb/Release.key | \
+          gpg --yes --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
         chmod 0644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg
       args:
         creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
@@ -30,9 +33,9 @@
         marker: "# {mark} ANSIBLE MANAGED KUBERNETES REPO"
         create: true
         backup: true
+        mode: "0644"
 
     - name: Force update apt package cache
       ansible.builtin.apt:
         update_cache: true
         force_apt_get: true
-  when: not k8s_repo_file.stat.exists

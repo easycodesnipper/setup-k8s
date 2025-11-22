@@ -4,10 +4,12 @@
     path: /etc/yum.repos.d/docker-ce.repo
   register: docker_repo_file
 
-- block:
+- name: Setup Docker repository
+  when: not docker_repo_file.stat.exists
+  block:
     - name: Add Docker CE repository using dnf config-manager
       ansible.builtin.shell: |
-        dnf-3 config-manager --add-repo https://download.docker.com/linux/{{ docker_distro_mapping[ansible_distribution | lower] | default(ansible_distribution | lower) }}/docker-ce.repo
+        dnf-3 config-manager --add-repo {{ docker_repo }}
       args:
         creates: /etc/yum.repos.d/docker-ce.repo
       register: repo_result
@@ -18,8 +20,7 @@
         - repo_result.rc != 0
         - "'already exists' not in repo_result.stderr"
 
-    - name: Yum make cache
-      ansible.builtin.yum:
+    - name: Dnf make cache
+      ansible.builtin.dnf:
         update_cache: true
       ignore_errors: false
-  when: not docker_repo_file.stat.exists

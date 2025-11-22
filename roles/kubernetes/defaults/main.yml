@@ -1,6 +1,6 @@
 ---
 k8s_required_packages:
-  Debian: 
+  Debian:
     # refer to https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/#k8s-install-0
     - apt-transport-https
     - ca-certificates

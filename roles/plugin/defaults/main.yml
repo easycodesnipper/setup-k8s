@@ -30,12 +30,12 @@ k8s_plugins:
           {
             "op": "replace",
             "path": "/data/config.json",
-            "value": "{\n  \"nodePathMap\": [\n    {\n      \"node\": \"DEFAULT_PATH_FOR_NON_LISTED_NODES\",\n      \"paths\": [\"{{ k8s_plugin_local_path_provisioner_default_path }}\"]\n    }\n  ]\n}"
+            "value": "{\"nodePathMap\":[{\"node\":\"DEFAULT_PATH_FOR_NON_LISTED_NODES\",\"paths\":[\"{{ k8s_plugin_local_path_provisioner_default_path }}\"]}]}"
           }
         ]
     configuration:
       # Reserve a default pvc with ReadWriteOnce access mode in default namespace
-      # local-path-provisioner limitation: only supports ReadWriteOnce and ReadWriteOncePod (1.22+) access 
+      # local-path-provisioner limitation: only supports ReadWriteOnce and ReadWriteOncePod (1.22+) access
       data: |
         apiVersion: v1
         kind: PersistentVolumeClaim
@@ -79,7 +79,7 @@ k8s_plugins:
     enabled: true
     namespace: "kubernetes-dashboard"
     helm:
-      repository: 
+      repository:
         name: "kubernetes-dashboard"
         url: "https://kubernetes.github.io/dashboard/"
       releases: "kubernetes-dashboard"
@@ -125,6 +125,5 @@ k8s_plugins:
           name: admin-user
           namespace: kubernetes-dashboard
           annotations:
-            kubernetes.io/service-account.name: "admin-user"   
+            kubernetes.io/service-account.name: "admin-user"
         type: kubernetes.io/service-account-token
-

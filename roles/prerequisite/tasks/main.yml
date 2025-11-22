@@ -6,96 +6,98 @@
   ignore_errors: true
   check_mode: false
 
-- block:
-  - name: Gather facts
-    ansible.builtin.setup:
-    when: ansible_os_family is not defined
-
-  - name: Check if dev-zram0.swap unit exists
-    ansible.builtin.command: systemctl list-unit-files dev-zram0.swap
-    register: zram_unit_check
-    changed_when: false
-    failed_when: false
-    check_mode: false
-
-  - name: Mask dev-zram0.swap unit
-    ansible.builtin.systemd:
-      name: dev-zram0.swap
-      masked: true
-      state: stopped
-    when: "'dev-zram0.swap' in zram_unit_check.stdout"
-
-  - name: Disable all swap devices
-    ansible.builtin.command: swapoff -a
-    changed_when: false
-    tags: swap
-
-  - name: Comment out swap entries in /etc/fstab
-    ansible.builtin.lineinfile:
-      path: /etc/fstab
-      regexp: '^\s*.*\sswap\s+'
-      line: '#\g<0>'
-      backrefs: true
-      state: present
-    notify: Remount filesystems
-    tags: swap
-
-  - name: Load required kernel modules
-    community.general.modprobe:
-      name: "{{ item }}"
-      state: present
-    loop: "{{ k8s_kernel_modules }}"
-    tags: kernel
-
-  - name: Ensure kernel modules load on boot
-    ansible.builtin.lineinfile:
-      path: /etc/modules-load.d/k8s.conf
-      line: "{{ item }}"
-      create: true
-      owner: root
-      group: root
-      mode: '0644'
-    loop: "{{ k8s_kernel_modules }}"
-    notify: Reload sysctl
-    tags: kernel
-
-  - name: Ensure sysctl settings are applied
-    ansible.posix.sysctl:
-      name: "{{ item.key }}"
-      value: "{{ item.value }}"
-      state: present
-      reload: true
-    loop: "{{ k8s_sysctl_settings | dict2items }}"
-    tags: sysctl
-
-  - name: Configure Kubernetes sysctl parameters
-    ansible.builtin.template:
-      src: k8s.conf.j2
-      dest: /etc/sysctl.d/k8s.conf
-      owner: root
-      group: root
-      mode: '0644'
-    notify: Reload sysctl
-    tags: sysctl
-
-  - name: Configure Kubernetes cluster hosts in /etc/hosts
-    ansible.builtin.blockinfile:
-      path: /etc/hosts
-      insertafter: EOF
-      create: true
-      # The 'marker' helps manage the block and makes it easy to remove later
-      marker: "# {mark} ANSIBLE MANAGED BLOCK - K8S HOSTS MAPPING"
-      block: |
-        {% for host in groups['k8s_cluster'] %}
-        {{ hostvars[host].ansible_host }} {{ host }}
-        {% endfor %}
-    tags: host-mapping
-
-  - name: Create flag file to indicate prerequisites are done
-    ansible.builtin.copy:
-      content: "Kubernetes prerequisites setup completed"
-      dest: "{{ k8s_prereq_completed_file }}"
-      owner: root
-      group: root
-      mode: '0644'
+- name: Setup prerequisites if not already done
   when: not prereq_done.stat.exists
+  block:
+    - name: Gather facts
+      ansible.builtin.setup:
+      when: ansible_facts["os_family"] is not defined
+
+    - name: Check if dev-zram0.swap unit exists
+      ansible.builtin.command: systemctl list-unit-files dev-zram0.swap  # noqa: command-instead-of-module
+      register: zram_unit_check
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Mask dev-zram0.swap unit
+      ansible.builtin.systemd:
+        name: dev-zram0.swap
+        masked: true
+        state: stopped
+      when: "'dev-zram0.swap' in zram_unit_check.stdout"
+
+    - name: Disable all swap devices
+      ansible.builtin.command: swapoff -a
+      changed_when: false
+      tags: swap
+
+    - name: Comment out swap entries in /etc/fstab
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        regexp: '^\s*.*\sswap\s+'
+        line: '#\g<0>'
+        backrefs: true
+        state: present
+      notify: Remount filesystems
+      tags: swap
+
+    - name: Load required kernel modules
+      community.general.modprobe:
+        name: "{{ item }}"
+        state: present
+      loop: "{{ k8s_kernel_modules }}"
+      tags: kernel
+
+    - name: Ensure kernel modules load on boot
+      ansible.builtin.lineinfile:
+        path: /etc/modules-load.d/k8s.conf
+        line: "{{ item }}"
+        create: true
+        owner: root
+        group: root
+        mode: '0644'
+      loop: "{{ k8s_kernel_modules }}"
+      notify: Reload sysctl
+      tags: kernel
+
+    - name: Ensure sysctl settings are applied
+      ansible.posix.sysctl:
+        name: "{{ item.key }}"
+        value: "{{ item.value }}"
+        state: present
+        reload: true
+      loop: "{{ k8s_sysctl_settings | dict2items }}"
+      tags: sysctl
+
+    - name: Configure Kubernetes sysctl parameters
+      ansible.builtin.template:
+        src: k8s.conf.j2
+        dest: /etc/sysctl.d/k8s.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Reload sysctl
+      tags: sysctl
+
+    - name: Configure Kubernetes cluster hosts in /etc/hosts
+      ansible.builtin.blockinfile:
+        path: /etc/hosts
+        insertafter: EOF
+        create: true
+        mode: '0644'
+        # The 'marker' helps manage the block and makes it easy to remove later
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - K8S HOSTS MAPPING"
+        block: |
+          {% for host in groups['k8s_cluster'] %}
+          {{ hostvars[host].ansible_host }} {{ host }}
+          {% endfor %}
+      tags: host-mapping
+
+    - name: Create flag file to indicate prerequisites are done
+      ansible.builtin.copy:
+        content: "Kubernetes prerequisites setup completed"
+        dest: "{{ k8s_prereq_completed_file }}"
+        owner: root
+        group: root
+        mode: '0644'

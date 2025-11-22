@@ -1,44 +1,48 @@
 ---
 - name: Reset Kubernetes cluster
   hosts: k8s_cluster
-  become: yes
+  become: true
   tasks:
     - name: Reset kubeadm
-      command: kubeadm reset -f
-      ignore_errors: yes
+      ansible.builtin.command: kubeadm reset -f
+      changed_when: true
+      failed_when: false
 
     - name: Remove CNI configuration
-      file:
+      ansible.builtin.file:
         path: /etc/cni/net.d
         state: absent
-      ignore_errors: yes
+      failed_when: false
 
     - name: Clean up HOME kube config
-      file:
+      ansible.builtin.file:
         path: "{{ ansible_env.HOME }}/.kube"
         state: absent
-      ignore_errors: yes
+      failed_when: false
 
     - name: Flush iptables rules
-      shell: |
+      ansible.builtin.shell: |
         iptables -F &&
         iptables -t nat -F &&
         iptables -t mangle -F &&
         iptables -X
-      ignore_errors: yes
+      changed_when: true
+      failed_when: false
 
     - name: Check if IPVS rules exist
-      command: ipvsadm -Ln
+      ansible.builtin.command: ipvsadm -Ln
       register: ipvs_rules
       changed_when: false
       failed_when: false
 
     - name: Clear IPVS rules
-      command: ipvsadm --clear
+      ansible.builtin.command: ipvsadm --clear
       when: ipvs_rules.stdout != ""
+      changed_when: true
       failed_when: false
 
     - name: Clean up flannel interface
-      command: ip link delete cni0
-      ignore_errors: yes
+      ansible.builtin.command: ip link delete cni0
       when: ansible_facts['interfaces'] is defined and 'cni0' in ansible_facts['interfaces']
+      changed_when: true
+      failed_when: false

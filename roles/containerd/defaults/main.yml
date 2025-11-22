@@ -3,13 +3,17 @@ docker_distro_mapping:
   rocky: centos
   almalinux: centos
 
+docker_distro: "{{ docker_distro_mapping[ansible_facts['distribution'] | lower] | default(ansible_facts['distribution'] | lower) }}"
+
+docker_repo: "https://download.docker.com/linux/{{ docker_distro }}/docker-ce.repo"
+
 containerd_required_packages:
-  Debian: 
+  Debian:
     # refer to https://docs.docker.com/engine/install/debian/
     # refer to https://docs.docker.com/engine/install/ubuntu/
     - ca-certificates
     - curl
-  RedHat: 
+  RedHat:
     # refer to https://docs.docker.com/engine/install/centos/
     # refer to https://docs.docker.com/engine/install/fedora/
     - dnf-plugins-core

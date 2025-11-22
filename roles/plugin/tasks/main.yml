@@ -8,13 +8,15 @@
     - item.value.manifest is defined
   loop_control:
     label: "Installing {{ item.key }}"
-  ignore_errors: true
+  changed_when: true
+  failed_when: false
   tags: "plugin-install-manifest"
 
 - name: Install Kubernetes plugins with Helm
+  tags: "plugin-install-helm"
   block:
     - name: Add Kubernetes Dashboard Helm repository
-      ansible.builtin.shell: "helm repo add {{ item.value.helm.repository.name }} {{ item.value.helm.repository.url }}"
+      ansible.builtin.command: "helm repo add {{ item.value.helm.repository.name }} {{ item.value.helm.repository.url }}"
       loop: "{{ k8s_plugins | dict2items }}"
       when:
         - item.value.enabled | bool
@@ -24,6 +26,8 @@
         - item.value.helm.repository.url is defined
       loop_control:
         label: "Helm adding repository for {{ item.key }}"
+      changed_when: true
+      failed_when: false
 
     - name: Install or upgrade with helm
       ansible.builtin.shell: |
@@ -43,8 +47,8 @@
         - item.value.helm.chart is defined
       loop_control:
         label: "Helm installing {{ item.key }}"
-  ignore_errors: true
-  tags: "plugin-install-helm"
+      changed_when: true
+      failed_when: false
 
 - name: Patch plugins
   ansible.builtin.command: |
@@ -58,7 +62,7 @@
   changed_when: "'patched' in patch_result.stdout or 'no change' not in patch_result.stdout"
   loop_control:
     label: "Patching {{ item.key }}"
-  ignore_errors: true
+  failed_when: false
   tags: "plugin-patch"
 
 - name: Wait for plugins to be ready
@@ -72,7 +76,7 @@
   retries: 3
   delay: 10
   until: wait_result.rc == 0
-  ignore_errors: true
+  failed_when: false
   changed_when: false
   tags: "plugin-wait"
 
@@ -88,5 +92,6 @@
     - item.value.configuration.data is defined
   loop_control:
     label: "Applying {{ item.key }}"
-  ignore_errors: true
+  changed_when: true
+  failed_when: false
   tags: "plugin-cfg"

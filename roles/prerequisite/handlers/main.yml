@@ -1,13 +1,12 @@
 ---
 - name: Remount filesystems
-  command: mount -a
+  ansible.builtin.command: mount -a  # noqa: command-instead-of-module
   changed_when: false
   register: mount_result
   failed_when: mount_result.rc != 0
 
 - name: Reload sysctl
-  command: sysctl --system
+  ansible.builtin.command: sysctl --system
   changed_when: false
   register: sysctl_result
   failed_when: sysctl_result.rc != 0
-  
