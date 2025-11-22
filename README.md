@@ -132,10 +132,9 @@ ansible-playbook -i inventory.ini playbook-reset.yml
 ```
 
 This will:
-1. Drain and delete worker nodes
-2. Reset kubeadm on all nodes
-3. Remove Kubernetes configuration files
-4. Clean up network configurations
+1. Reset kubeadm on all nodes
+2. Remove Kubernetes configuration files
+3. Clean up network configurations
 
 ## Roles Overview
 
