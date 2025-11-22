@@ -25,4 +25,4 @@
 
 ### Usage
 
-Refer to `README.md` for detailed installation and configuration instructions.
+Refer to [README](./README.md) for detailed installation and configuration instructions.
