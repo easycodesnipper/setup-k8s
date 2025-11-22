@@ -77,14 +77,6 @@ Alternatively, you can use the following command to install Kubernetes cluster:
 ansible-playbook -i inventory.ini playbook-install.yml --tags=prepare,init,join
 ```
 
-### Install Plugins (Optional)
-
-To install Kubernetes plugins (Metrics Server, Dashboard, etc.):
-
-```bash
-ansible-playbook -i inventory.ini playbook-plugin.yml
-```
-
 This will:
 1. Set up system prerequisites on all nodes
 2. Install container runtime (containerd)
@@ -113,6 +105,14 @@ flowchart LR
     class I,PL controllers
     class J workers
     class Prepare prepare_box
+```
+
+### Install Plugins (Optional)
+
+To install Kubernetes plugins (Metrics Server, Local Path Provisioner, Kubernetes Dashboard, Metallb LoadBalancer,... etc. Refer to [plugin declaration](./roles/plugin/default/main.yml) for more details):
+
+```bash
+ansible-playbook -i inventory.ini playbook-plugin.yml
 ```
 
 ### Verification
