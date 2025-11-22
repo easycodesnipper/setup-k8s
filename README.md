@@ -109,7 +109,7 @@ flowchart LR
 
 ### Install Plugins (Optional)
 
-To install Kubernetes plugins (Metrics Server, Local Path Provisioner, Kubernetes Dashboard, Metallb LoadBalancer,... etc. Refer to [plugin declaration](./roles/plugin/default/main.yml) for more details):
+To install Kubernetes plugins (Metrics Server, Local Path Provisioner, Kubernetes Dashboard, Metallb LoadBalancer,... etc. Refer to [plugin declaration](./roles/plugin/defaults/main.yml) for more details):
 
 ```bash
 ansible-playbook -i inventory.ini playbook-plugin.yml
