@@ -4,7 +4,7 @@
   become: yes
   roles:
     - role: prerequisite
-      tags: prerequisite
+      tags: prereq
     - role: containerd
       tags: containerd
     - role: kubernetes
@@ -16,16 +16,10 @@
   hosts: controllers
   roles:
     - initialize
-  tags: initialize
+  tags: init
 
 - name: Join worker nodes to cluster
   hosts: workers
   roles:
     - join
   tags: join
-
-- name: Install Kubernetes plugins
-  hosts: controllers
-  roles:
-    - plugin
-  tags: plugin

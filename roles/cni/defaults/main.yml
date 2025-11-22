@@ -1,3 +1,4 @@
 ---
 k8s_cni: "flannel"
 k8s_flannel_manifest_file: "https://github.com/flannel-io/flannel/releases/download/v0.27.4/kube-flannel.yml"
+k8s_calico_manifest_file: "https://raw.githubusercontent.com/projectcalico/calico/v3.31.1/manifests/calico.yaml"

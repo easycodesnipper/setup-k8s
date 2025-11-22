@@ -1,0 +1,17 @@
+---
+# Helm version to install
+helm_version: "4.0.0"
+
+# Operating system platform (e.g., linux, darwin, windows)
+helm_platform: "{{ ansible_system | lower }}"
+
+# CPU architecture (e.g., amd64, arm64)
+helm_architecture: >-
+  {{
+    {
+      'x86_64': 'amd64',
+      'amd64': 'amd64',
+      'aarch64': 'arm64',
+      'arm64': 'arm64'
+    }.get(ansible_architecture, ansible_architecture) | default('amd64')
+  }}

@@ -1,0 +1,6 @@
+---
+- name: Install Kubernetes plugins(optional)
+  hosts: controllers
+  roles:
+    - role: plugin
+      tags: plugin

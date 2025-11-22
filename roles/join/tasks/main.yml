@@ -1,10 +1,10 @@
 ---
 - name: Check if node is already joined to cluster
-  shell: "kubectl get node {{ inventory_hostname }} >/dev/null"
+  shell: "kubectl get node {{ inventory_hostname }} >/dev/null 2>&1"
   delegate_to: "{{ groups['controllers'][0] }}"
   register: node_check_result
   changed_when: false
-  ignore_errors: true
+  failed_when: false
 
 - block:
   - name: Get join command from controller
@@ -17,7 +17,7 @@
   - name: Display join command
     debug:
       msg: "{{ join_command.stdout }}"
-    when: k8s_display_join_command | default(false) | bool
+    when: k8s_debug | default(false) | bool
 
   - name: Join worker to cluster
     become: yes

@@ -1,9 +1,14 @@
 ---
+### Common Variables
 k8s_version: "1.34.2"
 k8s_major_minor: "{{ (k8s_version.split('.') | list)[0:2] | join('.') }}"
 k8s_verbosity: 2 # adjust verbosity level for debugging range [0-10]
+k8s_pod_network_cidr: "10.244.0.0/16"
+
+### Plugins Variables
 k8s_plugin_metallb_ip_range:
   - "10.17.3.240-10.17.3.250" # add your node IP range here
+
 k8s_plugin_local_path_provisioner_default_path: "/mnt/data/local-path" # adjust your path
 k8s_plugin_local_path_provisioner_pvc_request_size: "10Gi"
 # refer to https://github.com/rancher/local-path-provisioner/issues/70

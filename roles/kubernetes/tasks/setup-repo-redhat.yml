@@ -1,14 +1,27 @@
 ---
-- name: Add Kubernetes YUM repository
-  shell: |
-    # Refer to https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
-    # This overwrites any existing configuration in /etc/yum.repos.d/kubernetes.repo
-    cat <<EOF | tee /etc/yum.repos.d/kubernetes.repo
-    [kubernetes]
-    name=Kubernetes
-    baseurl=https://pkgs.k8s.io/core:/stable:/v{{ k8s_major_minor }}/rpm/
-    enabled=1
-    gpgcheck=1
-    gpgkey=https://pkgs.k8s.io/core:/stable:/v{{ k8s_major_minor }}/rpm/repodata/repomd.xml.key
-    exclude=kubelet kubeadm kubectl cri-tools kubernetes-cni
-    EOF
+- name: Check if Docker repository file exists
+  stat:
+    path: "{{ k8s_yum_repo_file }}"
+  register: k8s_repo_file
+
+- block:
+  - name: Add Kubernetes YUM repository
+    shell: |
+      # Refer to https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
+      # This overwrites any existing configuration in /etc/yum.repos.d/kubernetes.repo
+      cat <<EOF | tee "{{ k8s_yum_repo_file }}"
+      [kubernetes]
+      name=Kubernetes
+      baseurl=https://pkgs.k8s.io/core:/stable:/v{{ k8s_major_minor }}/rpm/
+      enabled=1
+      gpgcheck=1
+      gpgkey=https://pkgs.k8s.io/core:/stable:/v{{ k8s_major_minor }}/rpm/repodata/repomd.xml.key
+      exclude=kubelet kubeadm kubectl cri-tools kubernetes-cni
+      EOF
+
+  - name: Yum make cache
+    yum:
+      update_cache: true
+      force: false
+    ignore_errors: false
+  when: not k8s_repo_file.stat.exists

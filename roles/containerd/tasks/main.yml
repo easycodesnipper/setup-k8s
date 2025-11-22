@@ -1,10 +1,16 @@
 ---
-- name: Check if containerd is already installed
-  shell: "command -v containerd >/dev/null && containerd --version"
+- name: Check if Containerd is already installed
+  shell: |
+    if command -v containerd >/dev/null 2>&1; then
+      containerd --version
+      exit 0
+    else
+      echo "Containerd not installed on {{ inventory_hostname }}"
+      exit 1
+    fi
   register: containerd_version_check
   changed_when: false
-  ignore_errors: true
-  tags: containerd
+  failed_when: false
 
 - block:
   - name: Gather facts
@@ -34,7 +40,6 @@
     include_tasks:
       file: configure.yml
   when: containerd_version_check.rc != 0
-  tags: containerd
 
 - name: Start and enable containerd service
   systemd:
@@ -42,4 +47,3 @@
     state: started
     enabled: yes
     daemon_reload: yes
-  tags: containerd

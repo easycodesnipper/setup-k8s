@@ -3,13 +3,15 @@
   stat:
     path: /etc/kubernetes/admin.conf
   register: kubeadm_initialized
+  failed_when: false
 
 - block:
   - name: Pull Kubernetes images
-    command: >
-      kubeadm config images pull
-      --kubernetes-version={{ k8s_version }}
-      --v={{ k8s_verbosity }}
+    command:
+      cmd: |
+        kubeadm config images pull
+        --kubernetes-version={{ k8s_version }}
+        --v={{ k8s_verbosity }}
 
   - name: Initialize Kubernetes cluster
     command: >
@@ -17,33 +19,47 @@
       --control-plane-endpoint={{ k8s_api_server_endpoint }}
       --pod-network-cidr={{ k8s_pod_network_cidr }}
       --service-cidr={{ k8s_service_cidr }}
+      --ignore-preflight-errors={{ k8s_ignore_preflight_errors | join(',') }}
       --upload-certs
-      --ignore-preflight-errors=Mem
       --v={{ k8s_verbosity }}
     register: kubeadm_init
-    failed_when: 
+    failed_when:
       - kubeadm_init.rc != 0
       - '"cluster already exists" not in kubeadm_init.stderr'
 
-  - name: Create .kube directory
+  - name: Ensure home directory exists for kube config
     file:
-      path: /home/{{ ansible_user }}/.kube
+      path: "/home/{{ ansible_user }}"
       state: directory
       owner: "{{ ansible_user }}"
       group: "{{ ansible_user }}"
+      mode: '0755'
+
+  - name: Create .kube directory
+    file:
+      path: "/home/{{ ansible_user }}/.kube"
+      state: directory
+      owner: "{{ ansible_user }}"
+      group: "{{ ansible_user }}"
+      mode: '0700'
 
   - name: Copy admin config to user home
     copy:
       src: /etc/kubernetes/admin.conf
-      dest: /home/{{ ansible_user }}/.kube/config
+      dest: "/home/{{ ansible_user }}/.kube/config"
       remote_src: yes
       owner: "{{ ansible_user }}"
       group: "{{ ansible_user }}"
+      mode: '0600'
+
+  - name: Setup helm
+    include_role:
+      name: helm
 
   - name: Install CNI plugin
     include_role:
       name: cni
-      tasks_from: install-{{ k8s_cni | default('flannel')  }}
+      tasks_from: install-{{ k8s_cni | default('flannel') }}
   when: not kubeadm_initialized.stat.exists
 
 - name: Wait for cluster to be ready

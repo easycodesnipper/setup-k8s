@@ -11,7 +11,7 @@
         msg: "{{ node_status.stdout_lines }}"
 
     - name: Check pod status
-      command: kubectl get pods --all-namespaces
+      command: kubectl get pods -A
       register: pod_status
 
     - name: Display pod status

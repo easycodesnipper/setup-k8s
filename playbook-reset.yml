@@ -1,71 +1,44 @@
 ---
-- name: Reset Kubernetes cluster - Drain nodes and cleanup
-  hosts: controllers
-  gather_facts: yes
-  tasks:
-    - name: Get list of worker nodes
-      command: kubectl get nodes --no-headers -o custom-columns=":metadata.name"
-      register: nodes_list
-      ignore_errors: yes
-
-    - name: Drain worker nodes
-      command: "kubectl drain {{ item }} --delete-emptydir-data --ignore-daemonsets --force --timeout=60s"
-      loop: "{{ nodes_list.stdout_lines | select('match', 'worker') | list }}"
-      ignore_errors: yes
-      when: nodes_list.stdout_lines | length > 0
-
-    - name: Delete worker nodes from cluster
-      command: "kubectl delete node {{ item }}"
-      loop: "{{ nodes_list.stdout_lines | select('match', 'worker') | list }}"
-      ignore_errors: yes
-      when: nodes_list.stdout_lines | length > 0
-
-- name: Reset kubeadm on all nodes
+- name: Reset Kubernetes cluster
   hosts: k8s_cluster
   become: yes
   tasks:
     - name: Reset kubeadm
       command: kubeadm reset -f
       ignore_errors: yes
-      register: kubeadm_reset
 
-    - name: Remove kubeadm config files
-      file:
-        path: "{{ item }}"
-        state: absent
-        follow: no
-      loop:
-        - /etc/kubernetes
-        - /var/lib/etcd
-        - /var/lib/kubelet
-        - /var/lib/cni
-        - /etc/cni
-        - "{{ ansible_env.HOME }}/.kube"
-      when: item is not regex('/$')
-
-    - name: Clean up iptables rules
-      command: iptables -F && iptables -t nat -F && iptables -t mangle -F && iptables -X
-      ignore_errors: yes
-
-    - name: Clean up IPVS rules
-      command: ipvsadm --clear
-      ignore_errors: yes
-
-    - name: Remove CNI config files
+    - name: Remove CNI configuration
       file:
         path: /etc/cni/net.d
         state: absent
+      ignore_errors: yes
 
-    - name: Remove flannel interface
+    - name: Clean up HOME kube config
+      file:
+        path: "{{ ansible_env.HOME }}/.kube"
+        state: absent
+      ignore_errors: yes
+
+    - name: Flush iptables rules
+      shell: |
+        iptables -F &&
+        iptables -t nat -F &&
+        iptables -t mangle -F &&
+        iptables -X
+      ignore_errors: yes
+
+    - name: Check if IPVS rules exist
+      command: ipvsadm -Ln
+      register: ipvs_rules
+      changed_when: false
+      failed_when: false
+
+    - name: Clear IPVS rules
+      command: ipvsadm --clear
+      when: ipvs_rules.stdout != ""
+      failed_when: false
+
+    - name: Clean up flannel interface
       command: ip link delete cni0
       ignore_errors: yes
-
-    - name: Clean up systemd services
-      systemd:
-        name: "{{ item }}"
-        state: stopped
-        enabled: no
-        daemon_reload: yes
-      loop:
-        - kubelet
-      ignore_errors: yes
+      when: ansible_facts['interfaces'] is defined and 'cni0' in ansible_facts['interfaces']

@@ -1,0 +1,22 @@
+---
+- name: Install Calico network plugin
+  command: kubectl apply -f {{ k8s_calico_manifest_file }}
+  become: no
+  register: calico_result
+  until: calico_result.rc == 0
+  retries: 3
+  delay: 10
+
+- name: Patch CALICO_IPV4POOL_CIDR
+  command: |
+    kubectl patch daemonset calico-node -n kube-system --type='strategic' -p='
+    spec:
+      template:
+        spec:
+          containers:
+          - name: calico-node
+            env:
+            - name: CALICO_IPV4POOL_CIDR
+              value: "{{ k8s_pod_network_cidr }}"
+    '
+  become: no

@@ -1,15 +1,22 @@
 ---
-- name: Check if Kubernetes is already installed
-  shell: "command -v kubeadm >/dev/null && kubeadm version"
+- name: Gather facts
+  setup:
+  when: ansible_os_family is not defined
+
+- name: Check if Kubernetes components installed
+  shell: |
+    if command -v kubeadm >/dev/null 2>&1; then
+      kubeadm version --output short
+      exit 0
+    else
+      echo "Kubernetes components not installed on {{ inventory_hostname }}"
+      exit 1
+    fi
   register: kubeadm_version_check
   changed_when: false
-  ignore_errors: true
+  failed_when: false
 
 - block:
-  - name: Gather facts
-    setup:
-    when: ansible_os_family is not defined
-
   - name: Install required packages
     package:
       name: "{{ k8s_required_packages[ansible_os_family] }}"
@@ -36,7 +43,7 @@
         - kubelet-{{ k8s_version }}
         - kubeadm-{{ k8s_version }}
         - kubectl-{{ k8s_version }}
-        - kubernetes-cni-{{ k8s_cni_version }}
+        - kubernetes-cni-{{ k8s_cni_pkg_version }}
       state: present
       disable_excludes: kubernetes
     when: ansible_os_family == "RedHat"
@@ -45,15 +52,27 @@
     command: apt-mark hold kubelet kubeadm kubectl
     when: ansible_os_family == "Debian"
 
-  - name: Hold Kubernetes packages at current version on RedHat-based systems
-    shell: |
-      for pkg in kubelet kubeadm kubectl; do
-        yum versionlock add $pkg
-      done
-    args:
-      executable: /bin/bash
+  - block:
+    - name: Ensure the DNF Version Lock plugin is installed
+      package:
+        name: python3-dnf-plugin-versionlock
+        state: present
+        update_cache: true
+    - name: Hold Kubernetes packages at current version on RedHat-based systems
+      shell: |
+        for pkg in kubelet kubeadm kubectl; do
+          yum versionlock add $pkg
+        done
+      args:
+        executable: /bin/bash
     when: ansible_os_family == "RedHat"
 
+  - name: Ensure KUBELET_EXTRA_ARGS with --resolv-conf=/etc/resolv.conf settings
+    lineinfile:
+      path: "{{ k8s_kubelet_config_path[ansible_os_family] }}"
+      regexp: '^KUBELET_EXTRA_ARGS='
+      line: 'KUBELET_EXTRA_ARGS="--resolv-conf=/etc/resolv.conf"'
+      state: present
   when: kubeadm_version_check.rc != 0
 
 - name: Start and enable kubelet service

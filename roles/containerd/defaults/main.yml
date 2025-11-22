@@ -1,4 +1,8 @@
 ---
+docker_distro_mapping:
+  rocky: centos
+  almalinux: centos
+
 containerd_required_packages:
   Debian: 
     # refer to https://docs.docker.com/engine/install/debian/

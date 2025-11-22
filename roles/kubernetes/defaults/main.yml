@@ -10,4 +10,10 @@ k8s_required_packages:
     # refer to https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/#k8s-install-1
     - dnf-plugins-core
 
-k8s_cni_version: "1.7.1"
+k8s_kubelet_config_path:
+  Debian: /etc/default/kubelet
+  RedHat: /etc/sysconfig/kubelet
+
+k8s_yum_repo_file: "/etc/yum.repos.d/kubernetes.repo"
+
+k8s_cni_pkg_version: "1.7.1"

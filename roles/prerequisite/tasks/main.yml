@@ -3,18 +3,27 @@
   stat:
     path: "{{ k8s_prereq_completed_file }}"
   register: prereq_done
+  ignore_errors: true
+  check_mode: false
 
 - block:
   - name: Gather facts
     setup:
     when: ansible_os_family is not defined
 
+  - name: Check if dev-zram0.swap unit exists
+    command: systemctl list-unit-files dev-zram0.swap
+    register: zram_unit_check
+    changed_when: false
+    failed_when: false
+    check_mode: no
+
   - name: Mask dev-zram0.swap unit
     systemd:
       name: dev-zram0.swap
       masked: yes
       state: stopped
-    when: ansible_os_family == "RedHat"
+    when: "'dev-zram0.swap' in zram_unit_check.stdout"
 
   - name: Disable all swap devices
     command: swapoff -a
