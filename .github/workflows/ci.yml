@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ansible-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.x"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible ansible-lint
+
+      - name: Run ansible-lint
+        run: ansible-lint
+
+  syntax-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.x"
+
+      - name: Install Ansible
+        run: pip install ansible
+
+      - name: Syntax check playbook-install.yml
+        run: ansible-playbook -i inventory.ini playbook-install.yml --syntax-check
+
+      - name: Syntax check playbook-plugin.yml
+        run: ansible-playbook -i inventory.ini playbook-plugin.yml --syntax-check
+
+      - name: Syntax check playbook-reset.yml
+        run: ansible-playbook -i inventory.ini playbook-reset.yml --syntax-check
+
+      - name: Syntax check playbook-verify.yml
+        run: ansible-playbook -i inventory.ini playbook-verify.yml --syntax-check
