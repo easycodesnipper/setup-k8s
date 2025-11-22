@@ -34,7 +34,7 @@
         --reuse-values \
         {% for entry in item.value.helm['reuse-values'] %}--set {{ entry }} \{% endfor %}
         {% endif %}
-        --wait
+        --version={{ item.value.helm.version }}
       loop: "{{ k8s_plugins | dict2items }}"
       when: 
         - item.value.enabled | default(True) | bool

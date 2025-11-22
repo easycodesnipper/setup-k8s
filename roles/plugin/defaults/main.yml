@@ -84,6 +84,7 @@ k8s_plugins:
         url: "https://kubernetes.github.io/dashboard/"
       releases: "kubernetes-dashboard"
       chart: "kubernetes-dashboard/kubernetes-dashboard"
+      version: "7.14.0"
       reuse-values:
         - "kong.proxy.type=LoadBalancer"
     label: "app.kubernetes.io/instance=kubernetes-dashboard"

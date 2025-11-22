@@ -1,0 +1,16 @@
+# Ansible
+*.retry
+*.log
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Security
+*.pem
+*.key

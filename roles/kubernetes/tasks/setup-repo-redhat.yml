@@ -22,6 +22,5 @@
   - name: Yum make cache
     yum:
       update_cache: true
-      force: false
     ignore_errors: false
   when: not k8s_repo_file.stat.exists

@@ -19,7 +19,8 @@ This project provides an automated way to set up a Kubernetes cluster using Ansi
 ├── inventory.ini               # Inventory file defining cluster nodes
 ├── playbook-install.yml        # Main installation playbook
 ├── playbook-reset.yml          # Reset/cleanup playbook
-└── playbook-verify.yml         # Verification playbook
+├── playbook-verify.yml         # Verify cluster status playbook
+└── playbook-plugin.yml         # Install plugins(optional)
 ```
 
 ## Prerequisites
@@ -73,11 +74,15 @@ ansible-playbook -i inventory.ini playbook-install.yml
 ```
 Alternatively, you can use the following command to install Kubernetes cluster:
 ```bash
-ansible-playbook -i inventory.ini playbook-install.yml --tags=prepare,initialize,join
+ansible-playbook -i inventory.ini playbook-install.yml --tags=prepare,init,join
 ```
-If you wanna skip the plugin installation
+
+### Install Plugins (Optional)
+
+To install Kubernetes plugins (Metrics Server, Dashboard, etc.):
+
 ```bash
-ansible-playbook -i inventory.ini playbook-install.yml --skip-tags=plugin
+ansible-playbook -i inventory.ini playbook-plugin.yml
 ```
 
 This will:
@@ -165,7 +170,7 @@ This will:
 ## Customization
 
 You can customize various aspects of the deployment by modifying:
-- Variables in [group_vars/all.yml](file:///home/dylan/workspace/setup-k8s/group_vars/all.yml)
+- Variables in [group_vars/all.yml](group_vars/all.yml)
 - Templates in role directories
 - Tasks in role-specific task files
 
@@ -185,4 +190,4 @@ Common issues and solutions:
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
