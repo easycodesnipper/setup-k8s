@@ -1,10 +1,10 @@
 ---
 - name: Gather facts
-  setup:
+  ansible.builtin.setup:
   when: ansible_os_family is not defined
 
 - name: Check if Kubernetes components installed
-  shell: |
+  ansible.builtin.shell: |
     if command -v kubeadm >/dev/null 2>&1; then
       kubeadm version --output short
       exit 0
@@ -18,27 +18,27 @@
 
 - block:
   - name: Install required packages
-    package:
+    ansible.builtin.package:
       name: "{{ k8s_required_packages[ansible_os_family] }}"
       state: present
       update_cache: true
 
   - name: Setup Kubernetes's repository
-    include_tasks:
+    ansible.builtin.include_tasks:
       file: setup-repo-{{ ansible_os_family | lower }}.yml
 
   - name: Install Kubernetes components on Debian-based systems
-    apt:
+    ansible.builtin.apt:
       name:
         - kubelet={{ k8s_major_minor }}.*
         - kubeadm={{ k8s_major_minor }}.*
         - kubectl={{ k8s_major_minor }}.*
       state: present
-      update_cache: yes
+      update_cache: true
     when: ansible_os_family == "Debian"
-    
+
   - name: Install Kubernetes components with disableexcludes on RedHat-based systems
-    yum:
+    ansible.builtin.yum:
       name:
         - kubelet-{{ k8s_version }}
         - kubeadm-{{ k8s_version }}
@@ -49,26 +49,33 @@
     when: ansible_os_family == "RedHat"
 
   - name: Hold Kubernetes packages at current version on Debian-based systems
-    command: apt-mark hold kubelet kubeadm kubectl
+    ansible.builtin.dpkg_selections:
+      name: "{{ item }}"
+      selection: hold
+    loop:
+      - kubelet
+      - kubeadm
+      - kubectl
     when: ansible_os_family == "Debian"
 
   - block:
     - name: Ensure the DNF Version Lock plugin is installed
-      package:
+      ansible.builtin.package:
         name: python3-dnf-plugin-versionlock
         state: present
         update_cache: true
     - name: Hold Kubernetes packages at current version on RedHat-based systems
-      shell: |
+      ansible.builtin.shell: |
         for pkg in kubelet kubeadm kubectl; do
           yum versionlock add $pkg
         done
       args:
         executable: /bin/bash
+      changed_when: false
     when: ansible_os_family == "RedHat"
 
   - name: Ensure KUBELET_EXTRA_ARGS with --resolv-conf=/etc/resolv.conf settings
-    lineinfile:
+    ansible.builtin.lineinfile:
       path: "{{ k8s_kubelet_config_path[ansible_os_family] }}"
       regexp: '^KUBELET_EXTRA_ARGS='
       line: 'KUBELET_EXTRA_ARGS="--resolv-conf=/etc/resolv.conf"'
@@ -76,8 +83,8 @@
   when: kubeadm_version_check.rc != 0
 
 - name: Start and enable kubelet service
-  systemd:
+  ansible.builtin.systemd:
     name: kubelet
     state: started
-    enabled: yes
-    daemon_reload: yes
+    enabled: true
+    daemon_reload: true

@@ -1,22 +1,22 @@
 ---
 - name: Install Kubernetes plugins with manifest
-  command: |
+  ansible.builtin.command: |
     kubectl apply -f {{ item.value.manifest }}
   loop: "{{ k8s_plugins | dict2items }}"
-  when: 
+  when:
     - item.value.enabled | bool
     - item.value.manifest is defined
   loop_control:
     label: "Installing {{ item.key }}"
-  ignore_errors: yes
+  ignore_errors: true
   tags: "plugin-install-manifest"
 
 - name: Install Kubernetes plugins with Helm
   block:
     - name: Add Kubernetes Dashboard Helm repository
-      shell: "helm repo add {{ item.value.helm.repository.name }} {{ item.value.helm.repository.url }}"
+      ansible.builtin.shell: "helm repo add {{ item.value.helm.repository.name }} {{ item.value.helm.repository.url }}"
       loop: "{{ k8s_plugins | dict2items }}"
-      when: 
+      when:
         - item.value.enabled | bool
         - item.value.helm is defined
         - item.value.helm.repository is defined
@@ -26,7 +26,7 @@
         label: "Helm adding repository for {{ item.key }}"
 
     - name: Install or upgrade with helm
-      shell: |
+      ansible.builtin.shell: |
         helm upgrade --install {{ item.value.helm.releases }} {{ item.value.helm.chart }} \
         --create-namespace \
         --namespace {{ item.value.namespace | default('kube-system') }} \
@@ -36,56 +36,57 @@
         {% endif %}
         --version={{ item.value.helm.version }}
       loop: "{{ k8s_plugins | dict2items }}"
-      when: 
+      when:
         - item.value.enabled | default(True) | bool
         - item.value.helm is defined
         - item.value.helm.releases is defined
         - item.value.helm.chart is defined
       loop_control:
         label: "Helm installing {{ item.key }}"
-  ignore_errors: yes
+  ignore_errors: true
   tags: "plugin-install-helm"
 
 - name: Patch plugins
-  command: |
-    kubectl patch {{ item.value.patch.resource }} --type=json -n {{ item.value.namespace | default('kube-system') }} 
+  ansible.builtin.command: |
+    kubectl patch {{ item.value.patch.resource }} --type=json -n {{ item.value.namespace | default('kube-system') }}
     -p '{{ item.value.patch.data }}'
   loop: "{{ k8s_plugins | dict2items }}"
-  when: 
+  when:
     - item.value.enabled | bool
     - item.value.patch is defined
   register: patch_result
   changed_when: "'patched' in patch_result.stdout or 'no change' not in patch_result.stdout"
   loop_control:
     label: "Patching {{ item.key }}"
-  ignore_errors: yes
+  ignore_errors: true
   tags: "plugin-patch"
 
 - name: Wait for plugins to be ready
-  command: |
+  ansible.builtin.command: |
     kubectl wait --for=condition=Ready pod -n {{ item.value.namespace | default('kube-system') }} -l {{ item.value.label }} --timeout=300s
   loop: "{{ k8s_plugins | dict2items }}"
-  when: 
+  when:
     - item.value.enabled | bool
     - item.value.label is defined
   register: wait_result
   retries: 3
   delay: 10
   until: wait_result.rc == 0
-  ignore_errors: yes
+  ignore_errors: true
+  changed_when: false
   tags: "plugin-wait"
 
 - name: Apply configuration
-  command: |
+  ansible.builtin.command: |
     kubectl apply -f -
   args:
     stdin: "{{ item.value.configuration.data }}"
   loop: "{{ k8s_plugins | dict2items }}"
-  when: 
+  when:
     - item.value.enabled | bool
     - item.value.configuration is defined
     - item.value.configuration.data is defined
   loop_control:
     label: "Applying {{ item.key }}"
-  ignore_errors: yes
+  ignore_errors: true
   tags: "plugin-cfg"

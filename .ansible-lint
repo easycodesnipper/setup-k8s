@@ -1,0 +1,4 @@
+skip_list:
+  - var-naming
+  - role-name
+  - no-handler

@@ -1,6 +1,6 @@
 ---
 - name: Check if Containerd is already installed
-  shell: |
+  ansible.builtin.shell: |
     if command -v containerd >/dev/null 2>&1; then
       containerd --version
       exit 0
@@ -14,21 +14,21 @@
 
 - block:
   - name: Gather facts
-    setup:
+    ansible.builtin.setup:
     when: ansible_os_family is not defined
 
   - name: Install required packages
-    package:
+    ansible.builtin.package:
       name: "{{ containerd_required_packages[ansible_os_family] }}"
       state: present
       update_cache: true
 
   - name: Setup Docker's repository
-    include_tasks:
+    ansible.builtin.include_tasks:
       file: setup-repo-{{ ansible_os_family | lower }}.yml
 
   - name: Install containerd
-    package:
+    ansible.builtin.package:
       name: containerd.io
       state: present
     retries: 3
@@ -37,13 +37,13 @@
     until: result is succeeded
 
   - name: Configure containerd
-    include_tasks:
+    ansible.builtin.include_tasks:
       file: configure.yml
   when: containerd_version_check.rc != 0
 
 - name: Start and enable containerd service
-  systemd:
+  ansible.builtin.systemd:
     name: containerd
     state: started
-    enabled: yes
-    daemon_reload: yes
+    enabled: true
+    daemon_reload: true

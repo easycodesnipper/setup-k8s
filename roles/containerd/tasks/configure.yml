@@ -1,28 +1,29 @@
 - name: Create containerd configuration directory
-  file:
+  ansible.builtin.file:
     path: /etc/containerd
     state: directory
-    mode: '0755'
+    mode: "0755"
 
 - name: Generate default containerd config
-  command: containerd config default
+  ansible.builtin.command: containerd config default
   register: containerd_config
+  changed_when: false
   notify: Restart containerd
 
 - name: Write default containerd config
-  copy:
+  ansible.builtin.copy:
     content: |
       {{ containerd_config.stdout }}
     dest: /etc/containerd/config.toml
-    mode: '0644'
+    mode: "0644"
   notify: Restart containerd
   when: containerd_config is defined
 
 - name: Configure cgroup drivers
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: /etc/containerd/config.toml
     regexp: '^(\s+)(SystemdCgroup\s*=)'
-    line: '            SystemdCgroup = true'
-    backrefs: yes
+    line: "            SystemdCgroup = true"
+    backrefs: true
   notify: Restart containerd
   register: cgroup_config_changed

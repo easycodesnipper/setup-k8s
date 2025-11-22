@@ -1,38 +1,37 @@
 ---
 - name: Check if Docker repository file exists
-  stat:
+  ansible.builtin.stat:
     path: /etc/apt/sources.list.d/docker.sources
   register: docker_repo_file
 
 - block:
-  - name: Create Docker keyring directory
-    file:
-      path: /etc/apt/keyrings
-      state: directory
-      mode: '0755'
+    - name: Create Docker keyring directory
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
 
-  - name: Download Docker GPG key using curl
-    shell: |
-      curl -fsSL https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg -o /etc/apt/keyrings/docker.asc
-      chmod 0644 /etc/apt/keyrings/docker.asc
-    args:
-      creates: /etc/apt/keyrings/docker.asc
-    retries: 3
-    delay: 5
+    - name: Download Docker GPG key
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+      retries: 3
+      delay: 5
 
-  - name: Add Docker repository
-    copy:
-      dest: /etc/apt/sources.list.d/docker.sources
-      content: |
-        Types: deb
-        URIs: https://download.docker.com/linux/{{ ansible_distribution  | lower }}
-        Suites: {{ ansible_distribution_release }}
-        Components: stable
-        Signed-By: /etc/apt/keyrings/docker.asc
-      mode: '0644'
+    - name: Add Docker repository
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/docker.sources
+        content: |
+          Types: deb
+          URIs: https://download.docker.com/linux/{{ ansible_distribution  | lower }}
+          Suites: {{ ansible_distribution_release }}
+          Components: stable
+          Signed-By: /etc/apt/keyrings/docker.asc
+        mode: "0644"
 
-  - name: Force update apt package cache
-    apt:
-      update_cache: yes
-      force_apt_get: yes
+    - name: Force update apt package cache
+      ansible.builtin.apt:
+        update_cache: true
+        force_apt_get: true
   when: not docker_repo_file.stat.exists

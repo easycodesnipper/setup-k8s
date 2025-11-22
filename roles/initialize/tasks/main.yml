@@ -1,20 +1,21 @@
 ---
 - name: Check if Kubernetes cluster is already initialized
-  stat:
+  ansible.builtin.stat:
     path: /etc/kubernetes/admin.conf
   register: kubeadm_initialized
   failed_when: false
 
 - block:
   - name: Pull Kubernetes images
-    command:
+    ansible.builtin.command:
       cmd: |
         kubeadm config images pull
         --kubernetes-version={{ k8s_version }}
         --v={{ k8s_verbosity }}
+    changed_when: false
 
   - name: Initialize Kubernetes cluster
-    command: >
+    ansible.builtin.command: >
       kubeadm init
       --control-plane-endpoint={{ k8s_api_server_endpoint }}
       --pod-network-cidr={{ k8s_pod_network_cidr }}
@@ -28,7 +29,7 @@
       - '"cluster already exists" not in kubeadm_init.stderr'
 
   - name: Ensure home directory exists for kube config
-    file:
+    ansible.builtin.file:
       path: "/home/{{ ansible_user }}"
       state: directory
       owner: "{{ ansible_user }}"
@@ -36,7 +37,7 @@
       mode: '0755'
 
   - name: Create .kube directory
-    file:
+    ansible.builtin.file:
       path: "/home/{{ ansible_user }}/.kube"
       state: directory
       owner: "{{ ansible_user }}"
@@ -44,28 +45,29 @@
       mode: '0700'
 
   - name: Copy admin config to user home
-    copy:
+    ansible.builtin.copy:
       src: /etc/kubernetes/admin.conf
       dest: "/home/{{ ansible_user }}/.kube/config"
-      remote_src: yes
+      remote_src: true
       owner: "{{ ansible_user }}"
       group: "{{ ansible_user }}"
       mode: '0600'
 
   - name: Setup helm
-    include_role:
+    ansible.builtin.include_role:
       name: helm
 
   - name: Install CNI plugin
-    include_role:
+    ansible.builtin.include_role:
       name: cni
       tasks_from: install-{{ k8s_cni | default('flannel') }}
   when: not kubeadm_initialized.stat.exists
 
 - name: Wait for cluster to be ready
-  command: kubectl get nodes
-  become: no
+  ansible.builtin.command: kubectl get nodes
+  become: false
   register: cluster_status
+  changed_when: false
   until: cluster_status.rc == 0
   retries: 10
   delay: 30
