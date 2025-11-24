@@ -117,13 +117,13 @@ ansible-playbook -i inventory.ini playbook-plugin.yml
 
 You can enable or disable specific plugins using the following environment variables or Ansible variables (default: `true`):
 
-| Plugin | Variable / Env Var | Description |
-|--------|-------------------|-------------|
-| All Plugins | `K8S_PLUGINS_ENABLED` | Master flag to enable/disable all plugins |
-| Metrics Server | `K8S_METRICS_SERVER_ENABLED` | Enable Metrics Server |
-| Local Path Provisioner | `K8S_LOCAL_PATH_PROVISIONER_ENABLED` | Enable Local Path Provisioner |
-| MetalLB | `K8S_METALLB_ENABLED` | Enable MetalLB Load Balancer |
-| Dashboard | `K8S_DASHBOARD_ENABLED` | Enable Kubernetes Dashboard |
+| Plugin | Env Var(Uppercase) | Ansible Var(lowercase) | Description |
+|--------|---------|-------------|-------------|
+| All Plugins | `K8S_PLUGINS_ENABLED` | `k8s_plugins_enabled` | Master flag to enable/disable all plugins |
+| Metrics Server | `K8S_METRICS_SERVER_ENABLED` | `k8s_metrics_server_enabled` | Enable Metrics Server |
+| Local Path Provisioner | `K8S_LOCAL_PATH_PROVISIONER_ENABLED` | `k8s_local_path_provisioner_enabled` | Enable Local Path Provisioner |
+| MetalLB | `K8S_METALLB_ENABLED` | `k8s_metallb_enabled` | Enable MetalLB Load Balancer |
+| Dashboard | `K8S_DASHBOARD_ENABLED` | `k8s_dashboard_enabled` | Enable Kubernetes Dashboard |
 
 Example usage:
 ```bash
@@ -132,7 +132,7 @@ K8S_METALLB_ENABLED=false ansible-playbook -i inventory.ini playbook-plugin.yml
 
 or
 
-ansible-playbook -i inventory.ini playbook-plugin.yml -e K8S_METALLB_ENABLED=false
+ansible-playbook -i inventory.ini playbook-plugin.yml -e "k8s_metallb_enabled=false"
 ```
 
 

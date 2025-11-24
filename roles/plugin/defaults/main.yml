@@ -3,7 +3,7 @@ k8s_plugins:
   enabled: >
     {{ 
       lookup('env', 'K8S_PLUGINS_ENABLED') |
-      default(K8S_PLUGINS_ENABLED, true) | 
+      default(k8s_plugins_enabled, true) | 
       default(true, true) |
       bool 
     }}
@@ -12,7 +12,7 @@ k8s_plugins:
     enabled: >
       {{ 
         lookup('env', 'K8S_METRICS_SERVER_ENABLED') |
-        default(K8S_METRICS_SERVER_ENABLED, true) | 
+        default(k8s_metrics_server_enabled, true) | 
         default(true, true) |
         bool 
       }}
@@ -35,7 +35,7 @@ k8s_plugins:
     enabled: >
       {{ 
         lookup('env', 'K8S_LOCAL_PATH_PROVISIONER_ENABLED') |
-        default(K8S_LOCAL_PATH_PROVISIONER_ENABLED, true) | 
+        default(k8s_local_path_provisioner_enabled, true) | 
         default(true, true) |
         bool 
       }}
@@ -74,7 +74,7 @@ k8s_plugins:
     enabled: >
       {{ 
         lookup('env', 'K8S_METALLB_ENABLED') |
-        default(K8S_METALLB_ENABLED, true) | 
+        default(k8s_metallb_enabled, true) | 
         default(true, true) |
         bool 
       }}
@@ -104,7 +104,7 @@ k8s_plugins:
     enabled: >
       {{ 
         lookup('env', 'K8S_DASHBOARD_ENABLED') |
-        default(K8S_DASHBOARD_ENABLED, true) | 
+        default(k8s_dashboard_enabled, true) | 
         default(true, true) |
         bool 
       }}
