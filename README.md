@@ -115,6 +115,27 @@ To install Kubernetes plugins (Metrics Server, Local Path Provisioner, Kubernete
 ansible-playbook -i inventory.ini playbook-plugin.yml
 ```
 
+You can enable or disable specific plugins using the following environment variables or Ansible variables (default: `true`):
+
+| Plugin | Variable / Env Var | Description |
+|--------|-------------------|-------------|
+| All Plugins | `K8S_PLUGINS_ENABLED` | Master flag to enable/disable all plugins |
+| Metrics Server | `K8S_METRICS_SERVER_ENABLED` | Enable Metrics Server |
+| Local Path Provisioner | `K8S_LOCAL_PATH_PROVISIONER_ENABLED` | Enable Local Path Provisioner |
+| MetalLB | `K8S_METALLB_ENABLED` | Enable MetalLB Load Balancer |
+| Dashboard | `K8S_DASHBOARD_ENABLED` | Enable Kubernetes Dashboard |
+
+Example usage:
+```bash
+# Disable MetalLB
+K8S_METALLB_ENABLED=false ansible-playbook -i inventory.ini playbook-plugin.yml
+
+or
+
+ansible-playbook -i inventory.ini playbook-plugin.yml -e K8S_METALLB_ENABLED=false
+```
+
+
 ### Verification
 
 To verify the cluster status:

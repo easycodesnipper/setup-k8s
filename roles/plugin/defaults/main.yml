@@ -1,8 +1,21 @@
 ---
 k8s_plugins:
+  enabled: >
+    {{ 
+      lookup('env', 'K8S_PLUGINS_ENABLED') |
+      default(K8S_PLUGINS_ENABLED, true) | 
+      default(true, true) |
+      bool 
+    }}
   # Metrics Server to collect metrics(CPU, Memory, ...)
   metrics-server:
-    enabled: true
+    enabled: >
+      {{ 
+        lookup('env', 'K8S_METRICS_SERVER_ENABLED') |
+        default(K8S_METRICS_SERVER_ENABLED, true) | 
+        default(true, true) |
+        bool 
+      }}
     namespace: "kube-system"
     manifest: "https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.8.0/components.yaml"
     label: "k8s-app=metrics-server"
@@ -19,7 +32,13 @@ k8s_plugins:
 
   # Local Path Provisioner to provision local storage
   local-path-provisioner:
-    enabled: true
+    enabled: >
+      {{ 
+        lookup('env', 'K8S_LOCAL_PATH_PROVISIONER_ENABLED') |
+        default(K8S_LOCAL_PATH_PROVISIONER_ENABLED, true) | 
+        default(true, true) |
+        bool 
+      }}
     namespace: "local-path-storage"
     manifest: "https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.32/deploy/local-path-storage.yaml"
     label: "app=local-path-provisioner"
@@ -52,7 +71,13 @@ k8s_plugins:
 
   # MetalLB to provide load balancer
   metallb:
-    enabled: true
+    enabled: >
+      {{ 
+        lookup('env', 'K8S_METALLB_ENABLED') |
+        default(K8S_METALLB_ENABLED, true) | 
+        default(true, true) |
+        bool 
+      }}
     namespace: "metallb-system"
     manifest: "https://raw.githubusercontent.com/metallb/metallb/v0.13.12/config/manifests/metallb-native.yaml"
     label: "app=metallb"
@@ -75,8 +100,14 @@ k8s_plugins:
           ipAddressPools:
           - default-pool
   # Kubernetes Dashboard
-  kubernetes-dashboard:
-    enabled: true
+  dashboard:
+    enabled: >
+      {{ 
+        lookup('env', 'K8S_DASHBOARD_ENABLED') |
+        default(K8S_DASHBOARD_ENABLED, true) | 
+        default(true, true) |
+        bool 
+      }}
     namespace: "kubernetes-dashboard"
     helm:
       repository:
