@@ -37,7 +37,7 @@
           failed_when: false
 
         - name: Install or upgrade with helm
-          ansible.builtin.shell: >-
+          ansible.builtin.command: >-
             helm upgrade --install {{ item.value.helm.releases }} {{ item.value.helm.chart }}
             --create-namespace
             --namespace {{ item.value.namespace | default('kube-system') }}

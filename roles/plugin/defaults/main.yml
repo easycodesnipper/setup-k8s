@@ -1,20 +1,14 @@
 ---
 k8s_plugins:
   enabled: >
-    {{ 
-      lookup('env', 'K8S_PLUGINS_ENABLED') |
-      default(k8s_plugins_enabled, true) | 
-      default(true, true) |
-      bool 
+    {{
+      lookup('env', 'K8S_PLUGINS_ENABLED', default=k8s_plugins_enabled | default(true)) | bool
     }}
   # Metrics Server to collect metrics(CPU, Memory, ...)
   metrics-server:
     enabled: >
-      {{ 
-        lookup('env', 'K8S_METRICS_SERVER_ENABLED') |
-        default(k8s_metrics_server_enabled, true) | 
-        default(true, true) |
-        bool 
+      {{
+        lookup('env', 'K8S_METRICS_SERVER_ENABLED', default=k8s_metrics_server_enabled | default(true)) | bool
       }}
     namespace: "kube-system"
     manifest: "https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.8.0/components.yaml"
@@ -33,11 +27,8 @@ k8s_plugins:
   # Local Path Provisioner to provision local storage
   local-path-provisioner:
     enabled: >
-      {{ 
-        lookup('env', 'K8S_LOCAL_PATH_PROVISIONER_ENABLED') |
-        default(k8s_local_path_provisioner_enabled, true) | 
-        default(true, true) |
-        bool 
+      {{
+        lookup('env', 'K8S_LOCAL_PATH_PROVISIONER_ENABLED', default=k8s_local_path_provisioner_enabled | default(true)) | bool
       }}
     namespace: "local-path-storage"
     manifest: "https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.32/deploy/local-path-storage.yaml"
@@ -72,11 +63,8 @@ k8s_plugins:
   # MetalLB to provide load balancer
   metallb:
     enabled: >
-      {{ 
-        lookup('env', 'K8S_METALLB_ENABLED') |
-        default(k8s_metallb_enabled, true) | 
-        default(true, true) |
-        bool 
+      {{
+        lookup('env', 'K8S_METALLB_ENABLED', default=k8s_metallb_enabled | default(true)) | bool
       }}
     namespace: "metallb-system"
     manifest: "https://raw.githubusercontent.com/metallb/metallb/v0.13.12/config/manifests/metallb-native.yaml"
@@ -102,11 +90,11 @@ k8s_plugins:
   # Kubernetes Dashboard
   dashboard:
     enabled: >
-      {{ 
+      {{
         lookup('env', 'K8S_DASHBOARD_ENABLED') |
-        default(k8s_dashboard_enabled, true) | 
+        default(k8s_dashboard_enabled, true) |
         default(true, true) |
-        bool 
+        bool
       }}
     namespace: "kubernetes-dashboard"
     helm:
