@@ -1,0 +1,12 @@
+---
+- name: Prepare iSCSI for storage plugins
+  hosts: k8s_cluster
+  become: true
+  roles:
+    - role: iscsi
+
+- name: Install Kubernetes plugins
+  hosts: controllers
+  gather_facts: true
+  roles:
+    - role: plugin

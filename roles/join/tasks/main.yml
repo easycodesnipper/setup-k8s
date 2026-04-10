@@ -3,10 +3,11 @@
   ansible.builtin.shell: "kubectl get node {{ inventory_hostname }} >/dev/null 2>&1"
   delegate_to: "{{ groups['controllers'][0] }}"
   register: node_check_result
+  become: false
   changed_when: false
   failed_when: false
 
-- name: Join node to cluster if not already joined
+- name: Join to cluster if not already joined
   when: node_check_result.rc != 0
   block:
     - name: Get join command from controller
@@ -23,18 +24,5 @@
       when: k8s_debug | default(false) | bool
 
     - name: Join worker to cluster
-      become: true
       ansible.builtin.command: "{{ join_command.stdout }}"
       changed_when: true
-
-    - name: Wait for node to be ready
-      ansible.builtin.command: >
-        kubectl wait --for=condition=Ready node/{{ inventory_hostname | quote }} --timeout={{ k8s_wait_node_ready_timeout }}
-      delegate_to: "{{ groups['controllers'][0] }}"
-      register: wait_result
-      retries: 3
-      delay: 10
-      until: wait_result.rc == 0
-      failed_when: wait_result.rc != 0 and 'timeout' not in wait_result.stderr
-      changed_when: false
-      tags: wait-node-ready

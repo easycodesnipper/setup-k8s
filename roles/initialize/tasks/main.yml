@@ -9,18 +9,21 @@
   when: not kubeadm_initialized.stat.exists
   block:
     - name: Pull Kubernetes images
-      ansible.builtin.command:
-        cmd: |
-          kubeadm config images pull
-          --kubernetes-version={{ k8s_version }}
-          --v={{ k8s_verbosity }}
+      ansible.builtin.command: >
+        kubeadm config images pull
+        --kubernetes-version={{ k8s_version }}
+        --v={{ k8s_verbosity | default(2) | int }}
+      register: image_pull_result
+      until: image_pull_result is succeeded
+      retries: 3
+      delay: 15
       changed_when: false
 
     - name: Initialize Kubernetes cluster
       ansible.builtin.command: >
         kubeadm init
         --control-plane-endpoint={{ k8s_api_server_endpoint }}
-        --pod-network-cidr={{ k8s_pod_network_cidr }}
+        --pod-network-cidr={{ k8s_pod_network_cidr | default('10.244.0.0/16') }}
         --service-cidr={{ k8s_service_cidr }}
         --ignore-preflight-errors={{ k8s_ignore_preflight_errors | join(',') }}
         --upload-certs
@@ -31,45 +34,27 @@
         - kubeadm_init.rc != 0
         - '"cluster already exists" not in kubeadm_init.stderr'
 
-    - name: Ensure home directory exists for kube config
-      ansible.builtin.file:
-        path: "/home/{{ ansible_user }}"
-        state: directory
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-        mode: '0755'
+- name: Ensure home directory exists for kube config
+  ansible.builtin.file:
+    path: "/home/{{ ansible_user }}"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0755'
 
-    - name: Create .kube directory
-      ansible.builtin.file:
-        path: "/home/{{ ansible_user }}/.kube"
-        state: directory
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-        mode: '0700'
+- name: Create .kube directory
+  ansible.builtin.file:
+    path: "/home/{{ ansible_user }}/.kube"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0700'
 
-    - name: Copy admin config to user home
-      ansible.builtin.copy:
-        src: /etc/kubernetes/admin.conf
-        dest: "/home/{{ ansible_user }}/.kube/config"
-        remote_src: true
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-        mode: '0600'
-
-    - name: Setup helm
-      ansible.builtin.include_role:
-        name: helm
-
-    - name: Install CNI plugin
-      ansible.builtin.include_role:
-        name: cni
-        tasks_from: install-{{ k8s_cni | default('flannel') }}
-
-- name: Wait for cluster to be ready
-  ansible.builtin.command: kubectl get nodes
-  become: false
-  register: cluster_status
-  changed_when: false
-  until: cluster_status.rc == 0
-  retries: 10
-  delay: 30
+- name: Copy admin config to user home
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: "/home/{{ ansible_user }}/.kube/config"
+    remote_src: true
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0600'

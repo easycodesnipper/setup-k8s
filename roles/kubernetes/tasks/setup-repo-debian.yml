@@ -23,7 +23,7 @@
         creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
         executable: /bin/bash
       retries: 3
-      delay: 5
+      delay: 15
 
     - name: Add Kubernetes repository
       ansible.builtin.blockinfile:

@@ -1,0 +1,54 @@
+---
+- name: Ensure required facts are available
+  ansible.builtin.setup:
+  when: ansible_facts is not defined or ansible_facts.get('os_family', '') == ''
+
+- name: Check if iscsi_tcp module is already loaded
+  ansible.builtin.shell: set -o pipefail && lsmod | grep -q iscsi_tcp
+  args:
+    executable: /bin/bash
+  register: module_check
+  failed_when: false
+  changed_when: false
+
+- name: Ensure iscsi_tcp module is loaded immediately
+  community.general.modprobe:
+    name: iscsi_tcp
+    state: present
+  when: module_check.rc != 0
+
+- name: Ensure iscsi_tcp module is loaded after boot
+  ansible.builtin.lineinfile:
+    path: /etc/modules-load.d/iscsi.conf
+    line: iscsi_tcp
+    create: true
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Gather service facts
+  ansible.builtin.service_facts:
+  when: ansible_facts.services is not defined
+
+- name: Determine if iscsid service is active
+  ansible.builtin.set_fact:
+    iscsid_active: "{{ ansible_facts.services.get(iscsi_service_name, {}).get('state', '') == 'running' }}"
+
+- name: Install iSCSI packages and start service if not active
+  when: not iscsid_active
+  block:
+    - name: Install required packages
+      ansible.builtin.package:
+        name: "{{ iscsi_required_packages[ansible_facts['os_family']] }}"
+        state: present
+        update_cache: true
+      register: pkg_result
+      until: pkg_result is success
+      retries: 3
+      delay: 15
+
+    - name: Ensure iscsid service is started and enabled
+      ansible.builtin.service:
+        name: "{{ iscsi_service_name }}"
+        state: started
+        enabled: true

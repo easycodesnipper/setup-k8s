@@ -12,41 +12,49 @@
   tags: prepare
 
 - name: Initialize Kubernetes cluster
-  become: true
   hosts: controllers
+  become: true
   roles:
     - initialize
   tags: init
 
 - name: Join worker nodes to cluster
   hosts: workers
+  become: true
   roles:
     - join
   tags: join
 
-- name: Install Kubernetes plugins (optional)
+- name: Install CNI plugin
   hosts: controllers
+  become: false
+  gather_facts: false
+  roles:
+    - role: cni
+  tags: cni
+
+- name: Confirmation gate for plugins installation
+  hosts: localhost
   gather_facts: false
   vars:
-    k8s_plugins_enabled_final: >
-      {{
-        lookup('env', 'K8S_PLUGINS_ENABLED', default=k8s_plugins_enabled | default(true)) | bool
-      }}
+    k8s_plugins_enabled_final: "{{ (lookup('env', 'K8S_PLUGINS_ENABLED') or k8s_plugins_enabled | default(true)) | bool }}"
   tasks:
-    - name: Conditionally install Kubernetes plugins
-      when: k8s_plugins_enabled_final
-      block:
-        - name: Confirm plugin installation
-          when: k8s_install_plugin_need_confirm | default(true) | bool
-          ansible.builtin.pause:
-            prompt: "Do you want to post-install Kubernetes plugins? (y/n)"
-          register: plugin_confirm
+    - name: Prompt for confirmation
+      ansible.builtin.pause:
+        prompt: "Do you want to post-install Kubernetes plugins? (y/n)"
+      register: plugin_confirm
+      when:
+        - k8s_plugins_enabled_final
+        - k8s_install_plugin_need_confirm | default(true) | bool
 
-        - name: Execute plugin installation role
-          ansible.builtin.include_role:
-            name: plugin
-          when: >
-            not (k8s_install_plugin_need_confirm | default(true) | bool)
-            or
-            (plugin_confirm.user_input | default('y') | lower in ['y', 'yes'])
-  tags: plugin
+    - name: Set decision fact
+      ansible.builtin.set_fact:
+        should_install_plugins: "{{ plugin_confirm.user_input | default('y') | lower in ['y', 'yes'] }}"
+      when: k8s_plugins_enabled_final
+  tags: postinstall-plugins
+
+- name: Post install Kubernetes plugins
+  import_playbook: playbook-postinstall-plugins.yml
+  when:
+    - hostvars['localhost']['should_install_plugins'] | default(true) | bool
+  tags: postinstall-plugins

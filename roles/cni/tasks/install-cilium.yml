@@ -1,0 +1,44 @@
+---
+- name: Add Cilium Helm repository
+  ansible.builtin.command: helm repo add {{ k8s_cilium_repo | default('cilium') }} https://helm.cilium.io/
+  register: helm_repo_add
+  changed_when: "'has been added' in helm_repo_add.stdout"
+
+- name: Update Helm repositories
+  ansible.builtin.command: helm repo update {{ k8s_cilium_repo | default('cilium') }}
+  changed_when: false
+
+- name: Install Cilium via Helm with comprehensive tolerations
+  ansible.builtin.shell: |
+    helm upgrade --install cilium cilium/cilium \
+      --version {{ k8s_cilium_version | default('1.19.0') }} \
+      --namespace kube-system \
+      --set operator.replicas={{ k8s_cilium_operator_replicas | default(2) | int }} \
+      --set kubeProxyReplacement={{ k8s_cilium_kubeproxy_replacement | default(true) | bool }} \
+      --set hubble.enabled={{ k8s_cilium_hubble_enabled | default(false) | bool }} \
+      --set hubble.relay.enabled={{ k8s_cilium_hubble_relay_enabled | default(false) | bool }} \
+      --set hubble.ui.enabled={{ k8s_cilium_hubble_ui_enabled | default(false) | bool }} \
+      --set ipam.mode=cluster-pool \
+      --set "ipam.operator.clusterPoolIPv4PodCIDRList={ {{ k8s_pod_network_cidr | default('10.244.0.0/16') }} }"
+  register: cilium_result
+  changed_when: "'deployed' in cilium_result.stdout"
+
+- name: Wait for Cilium DaemonSet to be ready
+  ansible.builtin.command: >
+    kubectl -n kube-system wait --for=condition=ready pod
+    --selector=k8s-app=cilium
+    --timeout={{ k8s_wait_cilium_ds_timeout | default('5m') }}
+  retries: 3
+  delay: 15
+  changed_when: false
+  tags: wait-cilium-ds
+
+- name: Wait for Cilium Operator to be ready
+  ansible.builtin.command: >
+    kubectl -n kube-system wait --for=condition=ready pod
+    --selector=app.kubernetes.io/name=cilium-operator
+    --timeout={{ k8s_wait_cilium_operator_timeout | default('5m') }}
+  retries: 3
+  delay: 15
+  changed_when: false
+  tags: wait-cilium-operator

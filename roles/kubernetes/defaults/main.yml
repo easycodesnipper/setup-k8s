@@ -14,6 +14,20 @@ k8s_kubelet_config_path:
   Debian: /etc/default/kubelet
   RedHat: /etc/sysconfig/kubelet
 
+k8s_use_dedicated_dns: false
+k8s_dedicated_dns:
+  - 8.8.8.8
+  - 8.8.4.4
+
+k8s_resolv_conf: >-
+  {%- if k8s_use_dedicated_dns -%}
+    /etc/kubernetes/resolv.conf
+  {%- elif ansible_os_family == "Debian" -%}
+    /run/systemd/resolve/resolv.conf
+  {%- else -%}
+    /etc/resolv.conf
+  {%- endif -%}
+
 k8s_yum_repo_file: "/etc/yum.repos.d/kubernetes.repo"
 
 k8s_cni_pkg_version: "1.7.1"

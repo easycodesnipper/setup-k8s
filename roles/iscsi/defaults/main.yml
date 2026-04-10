@@ -1,0 +1,12 @@
+---
+iscsi_required_packages:
+  Debian:
+    - open-iscsi
+    - nfs-common
+    - util-linux
+  RedHat:
+    - iscsi-initiator-utils
+    - nfs-utils
+    - util-linux
+
+iscsi_service_name: "iscsid"

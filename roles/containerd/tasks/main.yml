@@ -34,14 +34,13 @@
         name: containerd.io
         state: present
       retries: 3
-      delay: 10
+      delay: 15
       register: result
       until: result is succeeded
 
     - name: Configure containerd
       ansible.builtin.include_tasks:
         file: configure.yml
-
 
 - name: Start and enable containerd service
   ansible.builtin.systemd:

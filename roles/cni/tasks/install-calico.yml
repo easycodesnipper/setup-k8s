@@ -1,11 +1,10 @@
 ---
 - name: Install Calico network plugin
   ansible.builtin.command: kubectl apply -f {{ k8s_calico_manifest_file }}
-  become: false
   register: calico_result
   until: calico_result.rc == 0
   retries: 3
-  delay: 10
+  delay: 15
   changed_when: calico_result.rc == 0
 
 - name: Patch CALICO_IPV4POOL_CIDR
@@ -18,7 +17,6 @@
           - name: calico-node
             env:
             - name: CALICO_IPV4POOL_CIDR
-              value: "{{ k8s_pod_network_cidr }}"
+              value: "{{ k8s_pod_network_cidr | default('10.244.0.0/16') }}"
     '
-  become: false
   changed_when: true
