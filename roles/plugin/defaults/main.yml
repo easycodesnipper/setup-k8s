@@ -1,3 +1,4 @@
+# roles/plugin/defaults/main.yml
 ---
 k8s_plugins:
 ################################### flannel ###################################
@@ -164,17 +165,16 @@ k8s_plugins:
       release: "longhorn"
       chart: "longhorn/longhorn"
       version: "{{ k8s_plugin_longhorn_version | default('1.11.1') }}" # helm search repo longhorn/longhorn --versions
-      values:
+      values: # helm show values longhorn/longhorn | sed -e '/^\s*#/d' -e '/^\s*$/d'
         service:
           ui:
             type: "{{ k8s_plugin_longhorn_ui_service_type | default('LoadBalancer') }}"
         persistence:
           defaultClassReplicaCount: "{{ k8s_plugin_longhorn_default_class_replica_count | default(3) | int }}"
         defaultSettings:
-          defaultReplicaCount: "{{ k8s_plugin_longhorn_default_replica_count | default(3) | int }}"
           defaultDataPath: "{{ k8s_plugin_longhorn_data_path | default('/var/lib/longhorn') }}"
         longhornUI:
-          replicas: "{{ k8s_plugin_longhorn_ui_replicas | default(2) | int }}"
+          replicas: "{{ k8s_plugin_longhorn_ui_replicas | default(1) | int }}"
     wait:
       resource: pod
       labels: "app.kubernetes.io/instance=longhorn"

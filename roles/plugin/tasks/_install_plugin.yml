@@ -1,3 +1,4 @@
+# roles/plugin/tasks/_install_plugin.yml
 ---
 - name: "Plugin {{ plugin_name }} | Install via Manifest"
   ansible.builtin.command:
@@ -26,33 +27,24 @@
       failed_when: false
       tags: [ "plugin-{{ plugin_name }}", "plugin-install-helm" ]
 
-    - name: "Write Helm values to temp file"
-      ansible.builtin.copy:
-        content: "{{ plugin_config.helm['values'] | default({}) | to_nice_yaml }}"
-        dest: "/tmp/helm-values-{{ plugin_name }}.yaml"
-      tags: [ "plugin-{{ plugin_name }}", "plugin-install-helm" ]
-
-    - name: "Install/Upgrade Helm release"
+    - name: "Install/Upgrade Helm release (stdin with generic type conversion)"
+      vars:
+        _values_yaml: "{{ plugin_config.helm['values'] | default({}) | deep_convert | to_nice_yaml }}"
       ansible.builtin.shell: |
         set -o pipefail
         helm upgrade --install {{ plugin_config.helm.release }} {{ plugin_config.helm.chart }} \
           --namespace {{ plugin_config.namespace | default('kube-system') }} \
           --create-namespace \
           --version {{ plugin_config.helm.version }} \
-          -f /tmp/helm-values-{{ plugin_name }}.yaml
+          -f -
       args:
         executable: /bin/bash
+        stdin: "{{ _values_yaml }}"
       register: helm_result
       until: helm_result is success
       retries: 5
       delay: 10
       changed_when: "'deployed' in helm_result.stdout or 'upgraded' in helm_result.stdout"
-      tags: [ "plugin-{{ plugin_name }}", "plugin-install-helm" ]
-
-    - name: "Clean up Helm values temp file"
-      ansible.builtin.file:
-        path: "/tmp/helm-values-{{ plugin_name }}.yaml"
-        state: absent
       tags: [ "plugin-{{ plugin_name }}", "plugin-install-helm" ]
 
 - name: "Plugin {{ plugin_name }} | Apply JSON Patch"
