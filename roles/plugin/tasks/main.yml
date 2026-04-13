@@ -1,107 +1,14 @@
 ---
 - name: Install Kubernetes plugins
-  when:
-    - k8s_plugins is mapping
+  when: k8s_plugins is mapping
   vars:
-    # Pre-filter the dictionary into a list of enabled plugins to avoid repeated logic
     active_plugins: "{{ k8s_plugins | dict2items | selectattr('value.enabled', 'defined') | selectattr('value.enabled', 'equalto', true) | list }}"
   block:
-    - name: "Plugin | Install via Manifest"
-      ansible.builtin.command:
-        cmd: "kubectl apply -f {{ item.value.manifest }}"
+    - name: "Execute plugin installation tasks"
+      include_tasks: "{{ item.key }}.yml"
+      vars:
+        plugin_name: "{{ item.key }}"
+        plugin_config: "{{ item.value }}"
       loop: "{{ active_plugins }}"
-      when: item.value.manifest is defined
       loop_control:
-        label: "Manifest: {{ item.key }}"
-      changed_when: true
-      tags: "plugin-install-manifest"
-
-    - name: "Plugin | Helm Operations"
-      tags: "plugin-install-helm"
-      block:
-        - name: "Plugin | Add Helm repositories"
-          ansible.builtin.command: >
-            helm repo add {{ item.value.helm.repository.name }} {{ item.value.helm.repository.url }}
-          loop: "{{ active_plugins }}"
-          when:
-            - item.value.helm is defined
-            - item.value.helm.repository is defined
-          loop_control:
-            label: "Add repo: {{ item.key }}"
-          register: helm_repo_add
-          changed_when: "'has been added' in helm_repo_add.stdout"
-
-        - name: "Plugin | Update Helm repositories"
-          ansible.builtin.command: >
-            helm repo update {{ item.value.helm.repository.name }}
-          loop: "{{ active_plugins }}"
-          when:
-            - item.value.helm is defined
-            - item.value.helm.repository is defined
-          loop_control:
-            label: "Update repo: {{ item.key }}"
-          changed_when: false
-          failed_when: false
-
-        - name: "Plugin | Install via Helm"
-          ansible.builtin.shell: |
-            set -o pipefail
-            echo '{{ item.value.helm['values'] | default({}) | to_json }}' | \
-            helm upgrade --install {{ item.value.helm.release }} {{ item.value.helm.chart }} \
-              --namespace {{ item.value.namespace | default('kube-system') }} \
-              --create-namespace \
-              --version {{ item.value.helm.version }} \
-              -f -
-          args:
-            executable: /bin/bash
-          loop: "{{ active_plugins }}"
-          when: item.value.helm is defined
-          loop_control:
-            label: "Helm install: {{ item.key }}"
-          register: helm_result
-          changed_when: "'deployed' in helm_result.stdout or 'upgraded' in helm_result.stdout"
-
-    - name: "Plugin | Apply JSON Patches"
-      ansible.builtin.command: >
-        kubectl patch {{ item.value.patch.resource }}
-        -n {{ item.value.namespace | default('kube-system') }}
-        --type=json -p '{{ item.value.patch.data | trim }}'
-      loop: "{{ active_plugins }}"
-      when: item.value.patch is defined
-      loop_control:
-        label: "Patch for: {{ item.key }}"
-      changed_when: true
-      tags: "plugin-patch"
-
-    - name: "Plugin | Wait for Pods to be Ready"
-      ansible.builtin.command: >
-        kubectl wait --for=condition=Ready pod
-        -n {{ item.value.namespace | default('kube-system') }}
-        --selector={{ item.value.label }}
-        --timeout=120s
-        --all
-      loop: "{{ active_plugins }}"
-      when:
-        - item.value.label is defined
-        - item.value.label | length > 0
-      loop_control:
-        label: "Waiting for: {{ item.key }}"
-      failed_when: false
-      changed_when: false
-      tags: "plugin-wait"
-
-    - name: "Plugin | Apply Custom Configuration"
-      ansible.builtin.command: >
-        kubectl apply -f -
-      args:
-        stdin: "{{ item.value.configuration.data }}"
-      loop: "{{ active_plugins }}"
-      when:
-        - item.value.configuration is defined
-        - item.value.configuration.data is defined
-      loop_control:
-        label: "Configure: {{ item.key }}"
-      changed_when: true
-      retries: 3
-      delay: 15
-      tags: "plugin-cfg"
+        label: "Plugin: {{ item.key }}"

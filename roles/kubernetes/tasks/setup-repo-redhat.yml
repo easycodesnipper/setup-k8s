@@ -1,4 +1,3 @@
----
 - name: Check if Docker repository file exists
   ansible.builtin.stat:
     path: "{{ k8s_yum_repo_file }}"
@@ -7,10 +6,12 @@
 - name: Setup Kubernetes repository
   when: not k8s_repo_file.stat.exists
   block:
-    - name: Add Kubernetes YUM repository
-      ansible.builtin.copy:
-        dest: "{{ k8s_yum_repo_file }}"
-        content: |
+    - name: Add Kubernetes YUM repository using blockinfile
+      ansible.builtin.blockinfile:
+        path: "{{ k8s_yum_repo_file }}"
+        create: true
+        mode: "0644"
+        block: |
           [kubernetes]
           name=Kubernetes
           baseurl=https://pkgs.k8s.io/core:/stable:/v{{ k8s_major_minor }}/rpm/
@@ -18,7 +19,7 @@
           gpgcheck=1
           gpgkey=https://pkgs.k8s.io/core:/stable:/v{{ k8s_major_minor }}/rpm/repodata/repomd.xml.key
           exclude=kubelet kubeadm kubectl cri-tools kubernetes-cni
-        mode: "0644"
+        marker: "# {mark} Kubernetes YUM repository"
 
     - name: Dnf make cache
       ansible.builtin.dnf:

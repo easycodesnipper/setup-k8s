@@ -2,6 +2,11 @@
 - name: Prepare Kubernetes cluster
   hosts: k8s_cluster
   become: true
+  any_errors_fatal: true
+  pre_tasks:
+    - name: Test network reachability
+      ansible.builtin.ping:
+      tags: always
   roles:
     - role: prerequisite
       tags: prereq

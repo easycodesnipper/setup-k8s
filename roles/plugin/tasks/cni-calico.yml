@@ -1,0 +1,6 @@
+---
+- name: "Install Calico"
+  vars:
+    plugin_name: calico
+    plugin_config: "{{ k8s_plugins[plugin_name] }}"
+  include_tasks: _install_plugin.yml

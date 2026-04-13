@@ -1,8 +1,0 @@
----
-- name: Install Flannel network plugin
-  ansible.builtin.command: kubectl apply -f {{ k8s_flannel_manifest_file }}
-  register: flannel_result
-  until: flannel_result.rc == 0
-  retries: 3
-  delay: 15
-  changed_when: flannel_result.rc == 0

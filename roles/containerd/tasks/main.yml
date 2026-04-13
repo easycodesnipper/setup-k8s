@@ -33,18 +33,17 @@
       ansible.builtin.package:
         name: containerd.io
         state: present
-      retries: 3
+      retries: 5
       delay: 15
       register: result
       until: result is succeeded
 
-    - name: Configure containerd
-      ansible.builtin.include_tasks:
-        file: configure.yml
+- name: Configure containerd
+  ansible.builtin.include_tasks:
+    file: configure.yml
 
-- name: Start and enable containerd service
+- name: Ensure containerd is running and enabled
   ansible.builtin.systemd:
     name: containerd
     state: started
     enabled: true
-    daemon_reload: true

@@ -7,23 +7,42 @@
 - name: Setup Kubernetes repository
   when: not k8s_repo_file.stat.exists
   block:
-    - name: Create Kubernetes keyring directory
+    - name: Ensure apt keyrings directory exists
       ansible.builtin.file:
         path: /etc/apt/keyrings
         state: directory
-        mode: "0755"
+        mode: '0755'
 
-    - name: Download Kubernetes GPG key
-      ansible.builtin.shell: |
-        set -o pipefail
-        curl -fsSL https://pkgs.k8s.io/core:/stable:/v{{ k8s_major_minor }}/deb/Release.key | \
+    - name: Download Kubernetes GPG key (force fresh copy)
+      ansible.builtin.get_url:
+        url: "https://pkgs.k8s.io/core:/stable:/v{{ k8s_major_minor }}/deb/Release.key"
+        dest: /tmp/kubernetes-Release.key
+        mode: '0644'
+      register: key_download
+      until: key_download is success
+      retries: 5
+      delay: 15
+
+    - name: Convert and install GPG key (binary format)
+      ansible.builtin.command:
+        cmd: >
           gpg --yes --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-        chmod 0644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+          /tmp/kubernetes-Release.key
       args:
         creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-        executable: /bin/bash
-      retries: 3
-      delay: 15
+        removes: /tmp/kubernetes-Release.key
+      register: key_install
+      changed_when: key_install is changed
+
+    - name: Verify GPG key fingerprint
+      ansible.builtin.shell:
+        cmd: |
+          gpg --show-keys --with-fingerprint /etc/apt/keyrings/kubernetes-apt-keyring.gpg | \
+          awk '/pub / {getline; gsub(/ /,"",$0); print}'
+      register: key_fingerprint
+      changed_when: false
+      failed_when: k8s_gpg_fingerprint not in key_fingerprint.stdout
+      when: key_install is changed
 
     - name: Add Kubernetes repository
       ansible.builtin.blockinfile:
@@ -34,8 +53,11 @@
         create: true
         backup: true
         mode: "0644"
+      register: repo_change
 
-    - name: Force update apt package cache
+    - name: Update apt cache (with force clean)
       ansible.builtin.apt:
         update_cache: true
         force_apt_get: true
+        cache_valid_time: 0
+      when: (key_install is changed) or (repo_change is changed)

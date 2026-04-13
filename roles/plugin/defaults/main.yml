@@ -1,47 +1,69 @@
 ---
 k8s_plugins:
-  # Metrics Server to collect metrics(CPU, Memory, ...)
-  metrics-server:
-    enabled: "{{ k8s_plugin_metrics_server_enabled | default(true) | bool }}"
+################################### flannel ###################################
+  # CNI - flannel
+  flannel:
     namespace: "kube-system"
-    manifest:
-      "https://github.com/kubernetes-sigs/metrics-server/releases/download/v\
-      {{ k8s_plugin_metrics_server_version | default('0.8.0') }}\
-      /components.yaml"
-    label: "k8s-app=metrics-server"
-    patch:
-      resource: "deployment/metrics-server"
-      data: |
-        [
-          {
-            "op": "add",
-            "path": "/spec/template/spec/containers/0/args/-",
-            "value": "--kubelet-insecure-tls"
-          }
-        ]
+    manifest: "https://github.com/flannel-io/flannel/releases/download/v{{ k8s_plugin_flannel_version | default('0.27.4') }}/kube-flannel.yml"
+    wait:
+      resource: pod
+      labels: "k8s-app=flannel"
 
-  # Local Path Provisioner to provision local storage
-  local-path-provisioner:
-    enabled: "{{ k8s_plugin_local_path_provisioner_enabled | default(true) | bool }}"
-    namespace: "local-path-storage"
-    manifest:
-      "https://raw.githubusercontent.com/rancher/local-path-provisioner/v\
-      {{ k8s_plugin_local_path_provisioner_version | default('0.0.32') }}\
-      /deploy/local-path-storage.yaml"
-    label: "app=local-path-provisioner"
+################################### calico ###################################
+  # CNI - calico
+  calico:
+    namespace: "kube-system"
+    manifest: "https://raw.githubusercontent.com/projectcalico/calico/v{{ k8s_plugin_calico_version | default('3.31.1') }}/manifests/calico.yaml"
     patch:
-      resource: "configmap/local-path-config"
-      data: |
-        [
-          {
-            "op": "replace",
-            "path": "/data/config.json",
-            "value": "{\"nodePathMap\":[{\"node\":\"DEFAULT_PATH_FOR_NON_LISTED_NODES\",\"paths\":[\"\
-              {{ k8s_plugin_local_path_provisioner_default_path | default('/var/local/rancher/local-path-provisioner') }}\
-              \"]}]}"
-          }
-        ]
+      resource: "daemonset/calico-node"
+      data: >-
+        {{
+          [
+            {
+              "op": "add",
+              "path": "/spec/template/spec/containers/0/env/-",
+              "value": {
+                "name": "CALICO_IPV4POOL_CIDR",
+                "value": "{{ k8s_pod_network_cidr | default('10.244.0.0/16') }}"
+              }
+            }
+          ] | to_json
+        }}
+    wait:
+      resource: pod
+      labels: "k8s-app=calico"
 
+################################### cilium ###################################
+  # CNI - cilium
+  cilium:
+    namespace: "{{ k8s_plugin_cilium_namespace | default('cilium-system') }}"
+    helm:
+      repository:
+        name: "cilium"
+        url: "https://helm.cilium.io"
+      release: "cilium"
+      chart: "cilium/cilium"
+      version: "{{ k8s_plugin_cilium_version | default('1.19.0') }}" # helm search repo cilium/cilium --versions
+      values:
+        operator:
+          replicas: "{{ k8s_cilium_operator_replicas | default(2) | int }}"
+        kubeProxyReplacement: "{{ k8s_cilium_kubeproxy_replacement | default(true) | bool }}"
+        hubble:
+          enabled: "{{ k8s_cilium_hubble_enabled | default(false) | bool }}"
+          relay:
+            enabled: "{{ k8s_cilium_hubble_relay_enabled | default(false) | bool }}"
+          ui:
+            enabled: "{{ k8s_cilium_hubble_ui_enabled | default(false) | bool }}"
+        ipam:
+          mode: cluster-pool
+          operator:
+            clusterPoolIPv4PodCIDRList:
+              - "{{ k8s_pod_network_cidr | default('10.244.0.0/16') }}"
+    wait:
+      resource: pod
+      labels: "k8s-app=cilium"
+
+################################### metallb ###################################
   # MetalLB to provide load balancer
   metallb:
     enabled: "{{ k8s_plugin_metallb_enabled | default(true) | bool }}"
@@ -49,7 +71,9 @@ k8s_plugins:
     manifest: "https://raw.githubusercontent.com/metallb/metallb/v\
       {{ k8s_plugin_metallb_version | default('0.13.12') }}\
       /config/manifests/metallb-native.yaml"
-    label: "app=metallb"
+    wait:
+      resource: pod
+      labels: "app=metallb"
     configuration:
       data: |
         apiVersion: metallb.io/v1beta1
@@ -69,6 +93,66 @@ k8s_plugins:
           ipAddressPools:
           - default-pool
 
+################################### metrics-server ###################################
+  # Metrics Server to collect metrics(CPU, Memory, ...)
+  metrics-server:
+    enabled: "{{ k8s_plugin_metrics_server_enabled | default(true) | bool }}"
+    namespace: "kube-system"
+    manifest:
+      "https://github.com/kubernetes-sigs/metrics-server/releases/download/v\
+      {{ k8s_plugin_metrics_server_version | default('0.8.0') }}\
+      /components.yaml"
+    patch:
+      resource: "deployment/metrics-server"
+      data: >-
+        {{
+          [
+            {
+              "op": "add",
+              "path": "/spec/template/spec/containers/0/args/-",
+              "value": "--kubelet-insecure-tls"
+            }
+          ] | to_json
+        }}
+    wait:
+      resource: pod
+      labels: "k8s-app=metrics-server"
+
+################################### local-path-provisioner ###################################
+  # Local Path Provisioner to provision local storage
+  local-path-provisioner:
+    enabled: "{{ k8s_plugin_local_path_provisioner_enabled | default(true) | bool }}"
+    namespace: "local-path-storage"
+    manifest:
+      "https://raw.githubusercontent.com/rancher/local-path-provisioner/v\
+      {{ k8s_plugin_local_path_provisioner_version | default('0.0.32') }}\
+      /deploy/local-path-storage.yaml"
+    patch:
+      resource: "configmap/local-path-config"
+      data: >-
+        {{
+          [
+            {
+              "op": "replace",
+              "path": "/data/config.json",
+              "value": {
+                "nodePathMap": [
+                  {
+                    "node": "DEFAULT_PATH_FOR_NON_LISTED_NODES",
+                    "paths": [
+                      k8s_plugin_local_path_provisioner_default_path | default('/var/local/rancher/local-path-provisioner')
+                    ]
+                  }
+                ]
+              } | to_json
+            }
+          ] | to_json
+        }}
+    wait:
+      resource: pod
+      labels: "app=local-path-provisioner"
+
+################################### longhorn ###################################
   # Provide distributed block storage
   longhorn:
     enabled: "{{ k8s_plugin_longhorn_enabled | default(true) | bool }}"
@@ -79,29 +163,26 @@ k8s_plugins:
         url: "https://charts.longhorn.io"
       release: "longhorn"
       chart: "longhorn/longhorn"
-      version: "{{ k8s_plugin_longhorn_version | default('1.11.0') }}"
+      version: "{{ k8s_plugin_longhorn_version | default('1.11.1') }}" # helm search repo longhorn/longhorn --versions
       values:
         service:
           ui:
             type: "{{ k8s_plugin_longhorn_ui_service_type | default('LoadBalancer') }}"
-            port: "{{ k8s_plugin_longhorn_ui_service_port | default(80) | int }}"
         persistence:
-          defaultClassReplicaCount: "{{ k8s_plugin_longhorn_default_class_replica_count | default(2) | int }}"
+          defaultClassReplicaCount: "{{ k8s_plugin_longhorn_default_class_replica_count | default(3) | int }}"
         defaultSettings:
-          defaultReplicaCount: "{{ k8s_plugin_longhorn_default_replica_count | default(2) | int }}"
+          defaultReplicaCount: "{{ k8s_plugin_longhorn_default_replica_count | default(3) | int }}"
           defaultDataPath: "{{ k8s_plugin_longhorn_data_path | default('/var/lib/longhorn') }}"
-        csi:
-          attacherReplicaCount: "{{ k8s_plugin_longhorn_csi_replica_count | default(2) | int }}"
-          provisionerReplicaCount: "{{ k8s_plugin_longhorn_csi_replica_count | default(2) | int }}"
-          resizerReplicaCount: "{{ k8s_plugin_longhorn_csi_replica_count | default(2) | int }}"
-          snapshotterReplicaCount: "{{ k8s_plugin_longhorn_csi_replica_count | default(2) | int }}"
         longhornUI:
           replicas: "{{ k8s_plugin_longhorn_ui_replicas | default(2) | int }}"
-    label: "app.kubernetes.io/instance=longhorn"
+    wait:
+      resource: pod
+      labels: "app.kubernetes.io/instance=longhorn"
 
+################################### headlamp ###################################
   # Headlamp as Kubernetes new UI to replace kubernetes-dashboard
   headlamp:
-    enabled: "{{ k8s_plugin_headlamp_enabled | default(false) | bool }}"
+    enabled: "{{ k8s_plugin_headlamp_enabled | default(true) | bool }}"
     namespace: "headlamp-system"
     helm:
       repository:
@@ -109,13 +190,13 @@ k8s_plugins:
         url: "https://kubernetes-sigs.github.io/headlamp/"
       release: "headlamp"
       chart: "headlamp/headlamp"
-      version: "{{ k8s_plugin_headlamp_version | default('0.40.0') }}"
-      values:
-        replicaCount: 1
+      version: "{{ k8s_plugin_headlamp_version | default('0.41.0') }}" # helm search repo headlamp/headlamp --versions
+      values: # helm show values headlamp/headlamp | sed -e '/^\s*#/d' -e '/^\s*$/d'
         service:
           type: "{{ k8s_plugin_headlamp_service_type | default('LoadBalancer') }}"
-          port: "{{ k8s_plugin_headlamp_service_port | default(80) | int }}"
-    label: "app.kubernetes.io/name=headlamp"
+    wait:
+      resource: pod
+      labels: "app.kubernetes.io/name=headlamp"
     configuration:
       data: |
         apiVersion: v1
@@ -140,7 +221,7 @@ k8s_plugins:
         apiVersion: v1
         kind: Secret
         metadata:
-          name: headlamp-user-token
+          name: headlamp-user-token # kubectl get secret headlamp-user-token -n headlamp-system -o jsonpath='{.data.token}' | base64 --decode
           namespace: "headlamp-system"
           annotations:
             kubernetes.io/service-account.name: "headlamp-user"

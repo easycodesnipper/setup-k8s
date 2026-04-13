@@ -1,0 +1,6 @@
+---
+- name: "Install Longhorn"
+  vars:
+    plugin_name: longhorn
+    plugin_config: "{{ k8s_plugins[plugin_name] }}"
+  include_tasks: _install_plugin.yml

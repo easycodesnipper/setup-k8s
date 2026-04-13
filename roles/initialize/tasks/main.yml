@@ -8,16 +8,11 @@
 - name: Initialize Kubernetes cluster if not already done
   when: not kubeadm_initialized.stat.exists
   block:
-    - name: Pull Kubernetes images
-      ansible.builtin.command: >
-        kubeadm config images pull
-        --kubernetes-version={{ k8s_version }}
-        --v={{ k8s_verbosity | default(2) | int }}
-      register: image_pull_result
-      until: image_pull_result is succeeded
-      retries: 3
-      delay: 15
-      changed_when: false
+    - name: Pull Kubernetes images using kubeadm
+      ansible.builtin.command:
+        cmd: kubeadm config images pull --kubernetes-version={{ k8s_version }}
+      register: pull_result
+      changed_when: "'Image pull finished' in pull_result.stdout"
 
     - name: Initialize Kubernetes cluster
       ansible.builtin.command: >

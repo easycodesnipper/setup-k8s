@@ -31,3 +31,5 @@ k8s_resolv_conf: >-
 k8s_yum_repo_file: "/etc/yum.repos.d/kubernetes.repo"
 
 k8s_cni_pkg_version: "1.7.1"
+
+k8s_gpg_fingerprint: "234654DA9A296436"   # Kubernetes core stable key

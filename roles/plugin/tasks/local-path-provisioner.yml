@@ -1,0 +1,6 @@
+---
+- name: "Install Local Path Provisioner"
+  vars:
+    plugin_name: local-path-provisioner
+    plugin_config: "{{ k8s_plugins[plugin_name] }}"
+  include_tasks: _install_plugin.yml

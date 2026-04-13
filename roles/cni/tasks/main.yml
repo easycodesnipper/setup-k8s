@@ -4,15 +4,15 @@
     name: helm
 
 - name: Install CNI plugin
-  ansible.builtin.include_role:
-    name: cni
-    tasks_from: install-{{ k8s_cni | default('flannel') }}
+  include_role:
+    name: plugin
+    tasks_from: cni-{{ k8s_cni | default('flannel') }}
 
 - name: Wait for all nodes to be Ready
   ansible.builtin.command: >
     kubectl wait --for=condition=Ready nodes --all
     --timeout={{ k8s_wait_allnode_ready_timeout | default('5m') }}
-  retries: 3
+  retries: 5
   delay: 15
   changed_when: false
   tags: wait-allnode-ready

@@ -1,29 +1,66 @@
-- name: Create containerd configuration directory
+---
+- name: Ensure containerd configuration directory
   ansible.builtin.file:
     path: /etc/containerd
     state: directory
     mode: "0755"
 
-- name: Generate default containerd config
-  ansible.builtin.command: containerd config default
-  register: containerd_config
-  changed_when: false
-  notify: Restart containerd
+- name: Generate default containerd config if missing or SystemdCgroup not true
+  block:
+    - name: Generate current default containerd configuration
+      ansible.builtin.shell:
+        cmd: containerd config default
+      register: containerd_default_config
+      changed_when: false
+      check_mode: false
 
-- name: Write default containerd config
-  ansible.builtin.copy:
-    content: |
-      {{ containerd_config.stdout }}
-    dest: /etc/containerd/config.toml
-    mode: "0644"
-  notify: Restart containerd
-  when: containerd_config is defined
+    - name: Write default config (backup existing if present)
+      ansible.builtin.copy:
+        content: "{{ containerd_default_config.stdout }}\n"
+        dest: /etc/containerd/config.toml
+        backup: true
+      notify: Restart containerd
 
-- name: Configure cgroup drivers
-  ansible.builtin.lineinfile:
-    path: /etc/containerd/config.toml
-    regexp: '^(\s+)(SystemdCgroup\s*=)'
-    line: "            SystemdCgroup = true"
-    backrefs: true
-  notify: Restart containerd
-  register: cgroup_config_changed
+    - name: Ensure SystemdCgroup is set to true (preserve indentation, uncomment if needed)
+      ansible.builtin.lineinfile:
+        path: /etc/containerd/config.toml
+        regexp: '^( *)?#?\s*(SystemdCgroup = ).*'
+        line: '\1\2true'
+        backrefs: true
+      notify: Restart containerd
+  when: >
+    (ansible_facts.get('services', {}).get('containerd', {}).get('state') == 'running')
+    or not (lookup('ansible.builtin.file', '/etc/containerd/config.toml', errors='ignore') | length > 0
+            and ('SystemdCgroup = true' in lookup('ansible.builtin.file', '/etc/containerd/config.toml')))
+
+- name: Configure registry mirrors if enabled
+  block:
+    - name: Ensure containerd certs directory exists
+      ansible.builtin.file:
+        path: "{{ containerd_registry_config_path }}"
+        state: directory
+        mode: '0755'
+
+    - name: Ensure registry-specific directories exist
+      ansible.builtin.file:
+        path: "{{ containerd_registry_config_path }}/{{ item.key }}"
+        state: directory
+        mode: '0755'
+      loop: "{{ containerd_registry_mirrors | dict2items }}"
+
+    - name: Generate hosts.toml for each registry mirror
+      ansible.builtin.template:
+        src: hosts.toml.j2
+        dest: "{{ containerd_registry_config_path }}/{{ item.key }}/hosts.toml"
+        mode: '0644'
+      loop: "{{ containerd_registry_mirrors | dict2items }}"
+      notify: Restart containerd
+
+    - name: Set config_path in containerd config.toml (if not already correct)
+      ansible.builtin.lineinfile:
+        path: /etc/containerd/config.toml
+        regexp: '^( *config_path = ).*'
+        line: '\1"{{ containerd_registry_config_path }}"'
+        backrefs: true
+      notify: Restart containerd
+  when: containerd_registry_mirror_enabled | default(false) | bool

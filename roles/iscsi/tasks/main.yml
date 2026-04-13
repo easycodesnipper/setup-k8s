@@ -44,7 +44,7 @@
         update_cache: true
       register: pkg_result
       until: pkg_result is success
-      retries: 3
+      retries: 5
       delay: 15
 
     - name: Ensure iscsid service is started and enabled

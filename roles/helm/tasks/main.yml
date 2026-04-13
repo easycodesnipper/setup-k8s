@@ -28,6 +28,6 @@
       - --strip-components=1
   args:
     creates: "/usr/local/bin/helm"
-  retries: 3
+  retries: 5
   delay: 15
   when: installed_helm_version is not defined or installed_helm_version != helm_version

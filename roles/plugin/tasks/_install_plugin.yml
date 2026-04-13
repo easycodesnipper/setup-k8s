@@ -1,0 +1,96 @@
+---
+- name: "Plugin {{ plugin_name }} | Install via Manifest"
+  ansible.builtin.command:
+    cmd: "kubectl apply -f {{ plugin_config.manifest }}"
+  when: plugin_config.manifest is defined
+  changed_when: true
+  tags: [ "plugin-{{ plugin_name }}", "plugin-install-manifest" ]
+
+- name: "Plugin {{ plugin_name }} | Helm Operations"
+  when: plugin_config.helm is defined
+  block:
+    - name: "Add Helm repository"
+      ansible.builtin.command: >
+        helm repo add {{ plugin_config.helm.repository.name }} {{ plugin_config.helm.repository.url }}
+      register: helm_repo_add
+      until: helm_repo_add is success
+      retries: 5
+      delay: 10
+      changed_when: "'has been added' in helm_repo_add.stdout"
+      tags: [ "plugin-{{ plugin_name }}", "plugin-install-helm" ]
+
+    - name: "Update Helm repository"
+      ansible.builtin.command: >
+        helm repo update {{ plugin_config.helm.repository.name }}
+      changed_when: false
+      failed_when: false
+      tags: [ "plugin-{{ plugin_name }}", "plugin-install-helm" ]
+
+    - name: "Write Helm values to temp file"
+      ansible.builtin.copy:
+        content: "{{ plugin_config.helm['values'] | default({}) | to_nice_yaml }}"
+        dest: "/tmp/helm-values-{{ plugin_name }}.yaml"
+      tags: [ "plugin-{{ plugin_name }}", "plugin-install-helm" ]
+
+    - name: "Install/Upgrade Helm release"
+      ansible.builtin.shell: |
+        set -o pipefail
+        helm upgrade --install {{ plugin_config.helm.release }} {{ plugin_config.helm.chart }} \
+          --namespace {{ plugin_config.namespace | default('kube-system') }} \
+          --create-namespace \
+          --version {{ plugin_config.helm.version }} \
+          -f /tmp/helm-values-{{ plugin_name }}.yaml
+      args:
+        executable: /bin/bash
+      register: helm_result
+      until: helm_result is success
+      retries: 5
+      delay: 10
+      changed_when: "'deployed' in helm_result.stdout or 'upgraded' in helm_result.stdout"
+      tags: [ "plugin-{{ plugin_name }}", "plugin-install-helm" ]
+
+    - name: "Clean up Helm values temp file"
+      ansible.builtin.file:
+        path: "/tmp/helm-values-{{ plugin_name }}.yaml"
+        state: absent
+      tags: [ "plugin-{{ plugin_name }}", "plugin-install-helm" ]
+
+- name: "Plugin {{ plugin_name }} | Apply JSON Patch"
+  ansible.builtin.command: >
+    kubectl patch {{ plugin_config.patch.resource }}
+    -n {{ plugin_config.namespace | default('kube-system') }}
+    --type=json -p '{{ plugin_config.patch.data | trim }}'
+  when: plugin_config.patch is defined
+  changed_when: true
+  tags: [ "plugin-{{ plugin_name }}", "plugin-patch" ]
+
+- name: "Plugin {{ plugin_name }} | Wait for Resource Ready"
+  vars:
+    _selector: >-
+      {{ plugin_config.wait.labels | join(',') if plugin_config.wait.labels is sequence
+         else plugin_config.wait.labels }}
+  ansible.builtin.command: >
+    kubectl wait --for=condition=Ready {{ plugin_config.wait.resource }}
+    -n {{ plugin_config.namespace | default('kube-system') }}
+    --selector="{{ _selector }}"
+    --timeout=120s --all
+  when: 
+    - plugin_config.wait is defined
+    - plugin_config.wait.resource is defined
+    - plugin_config.wait.labels is defined
+  failed_when: false
+  changed_when: false
+  tags: [ "plugin-{{ plugin_name }}", "plugin-wait" ]
+
+- name: "Plugin {{ plugin_name }} | Apply Custom Configuration"
+  ansible.builtin.command: >
+    kubectl apply -f -
+  args:
+    stdin: "{{ plugin_config.configuration.data }}"
+  when: 
+    - plugin_config.configuration is defined
+    - plugin_config.configuration.data is defined
+  changed_when: true
+  retries: 5
+  delay: 15
+  tags: [ "plugin-{{ plugin_name }}", "plugin-cfg" ]

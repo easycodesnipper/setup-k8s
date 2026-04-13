@@ -1,0 +1,6 @@
+---
+- name: "Install MetalLB"
+  vars:
+    plugin_name: metallb
+    plugin_config: "{{ k8s_plugins[plugin_name] }}"
+  include_tasks: _install_plugin.yml

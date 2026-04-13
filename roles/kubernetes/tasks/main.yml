@@ -36,7 +36,6 @@
           - kubeadm={{ k8s_major_minor }}.*
           - kubectl={{ k8s_major_minor }}.*
         state: present
-        update_cache: true
       when: ansible_facts["os_family"] == "Debian"
 
     - name: Install Kubernetes components with disableexcludes on RedHat-based systems
@@ -98,9 +97,8 @@
         create: true
         mode: '0644'
 
-- name: Start and enable kubelet service
+- name: Ensure kubelet is running and enabled
   ansible.builtin.systemd:
-    name: kubelet
+    name: containerd
     state: started
     enabled: true
-    daemon_reload: true

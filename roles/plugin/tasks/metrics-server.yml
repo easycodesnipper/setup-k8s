@@ -1,0 +1,6 @@
+---
+- name: "Install Metrics Server"
+  vars:
+    plugin_name: metrics-server
+    plugin_config: "{{ k8s_plugins[plugin_name] }}"
+  include_tasks: _install_plugin.yml
