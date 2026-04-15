@@ -18,7 +18,7 @@ containerd_required_packages:
     # refer to https://docs.docker.com/engine/install/fedora/
     - dnf-plugins-core
 
-containerd_registry_mirror_enabled: true
+containerd_registry_mirror_enabled: false
 containerd_registry_config_path: "/etc/containerd/certs.d"
 containerd_registry_mirrors:
   "docker.io":

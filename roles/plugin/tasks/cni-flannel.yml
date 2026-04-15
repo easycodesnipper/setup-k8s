@@ -1,6 +1,7 @@
 ---
-- name: "Install Flannel"
-  vars:
-    plugin_name: flannel
-    plugin_config: "{{ k8s_plugins[plugin_name] }}"
+- name: "Install CNI Flannel"
   include_tasks: _install_plugin.yml
+  vars:
+    plugin_name: cni-flannel
+    plugin_config: "{{ k8s_plugins[plugin_name] }}"
+  tags: plugin-flannel

@@ -1,6 +1,7 @@
 ---
-- name: "Install Cilium"
-  vars:
-    plugin_name: cilium
-    plugin_config: "{{ k8s_plugins[plugin_name] }}"
+- name: "Install CNI Cilium"
   include_tasks: _install_plugin.yml
+  vars:
+    plugin_name: cni-cilium
+    plugin_config: "{{ k8s_plugins[plugin_name] }}"
+  tags: plugin-cilium

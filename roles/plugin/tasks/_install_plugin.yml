@@ -3,12 +3,13 @@
 - name: "Plugin {{ plugin_name }} | Install via Manifest"
   ansible.builtin.command:
     cmd: "kubectl apply -f {{ plugin_config.manifest }}"
-  when: plugin_config.manifest is defined
+  when: 
+    - plugin_config['manifest'] is defined
+    - plugin_config['manifest'] is string
   changed_when: true
-  tags: [ "plugin-{{ plugin_name }}", "plugin-install-manifest" ]
+  tags: plugin-install-via-manifest
 
 - name: "Plugin {{ plugin_name }} | Helm Operations"
-  when: plugin_config.helm is defined
   block:
     - name: "Add Helm repository"
       ansible.builtin.command: >
@@ -18,43 +19,100 @@
       retries: 5
       delay: 10
       changed_when: "'has been added' in helm_repo_add.stdout"
-      tags: [ "plugin-{{ plugin_name }}", "plugin-install-helm" ]
+      when: 
+        - plugin_config['helm']['repository'] is defined
+        - plugin_config['helm']['repository'] is mapping
 
     - name: "Update Helm repository"
       ansible.builtin.command: >
         helm repo update {{ plugin_config.helm.repository.name }}
       changed_when: false
       failed_when: false
-      tags: [ "plugin-{{ plugin_name }}", "plugin-install-helm" ]
+      when: 
+        - plugin_config['helm']['repository'] is defined
+        - plugin_config['helm']['repository'] is mapping
 
-    - name: "Install/Upgrade Helm release (stdin with generic type conversion)"
+    # - name: Debug helm.values
+    #   ansible.builtin.debug:
+    #     msg: 
+    #       - "Values key exists in YAML? {{ (plugin_config['helm']['values'] is defined and plugin_config['helm']['values'] is mapping) | bool }}"
+    #       - "Values content: {{ plugin_config['helm']['values'] if plugin_config['helm']['values'] is mapping else 'NOT_PROVIDED' }}"
+
+    - name: "Write Helm values to temp file"
+      ansible.builtin.copy:
+        content: "{{ plugin_config['helm']['values'] | deep_convert | to_nice_yaml(indent=2) }}"
+        dest: "/tmp/{{ plugin_name }}-helm-values.yaml"
+        mode: '0644'
+      when: 
+        - plugin_config['helm']['values'] is defined
+        - plugin_config['helm']['values'] is mapping
+
+    - name: "Render Helm values from template"
+      ansible.builtin.template:
+        src: "{{ plugin_name }}-helm-values.yaml.j2"
+        dest: "/tmp/{{ plugin_name }}-helm-values.yaml"
+        mode: '0644'
+      when: >
+        plugin_config['helm']['values'] is not defined or 
+        plugin_config['helm']['values'] is not mapping
+
+    - name: "Install/Upgrade Helm release (using values file)"
       vars:
-        _values_yaml: "{{ plugin_config.helm['values'] | default({}) | deep_convert | to_nice_yaml }}"
+        _values_file: "/tmp/{{ plugin_name }}-helm-values.yaml"
       ansible.builtin.shell: |
         set -o pipefail
         helm upgrade --install {{ plugin_config.helm.release }} {{ plugin_config.helm.chart }} \
           --namespace {{ plugin_config.namespace | default('kube-system') }} \
           --create-namespace \
           --version {{ plugin_config.helm.version }} \
-          -f -
+          -f {{ _values_file }}
       args:
         executable: /bin/bash
-        stdin: "{{ _values_yaml }}"
       register: helm_result
       until: helm_result is success
       retries: 5
       delay: 10
       changed_when: "'deployed' in helm_result.stdout or 'upgraded' in helm_result.stdout"
-      tags: [ "plugin-{{ plugin_name }}", "plugin-install-helm" ]
+  when: 
+    - plugin_config['helm'] is defined
+    - plugin_config['helm'] is mapping
+  tags: plugin-install-via-helm
 
-- name: "Plugin {{ plugin_name }} | Apply JSON Patch"
-  ansible.builtin.command: >
-    kubectl patch {{ plugin_config.patch.resource }}
-    -n {{ plugin_config.namespace | default('kube-system') }}
-    --type=json -p '{{ plugin_config.patch.data | trim }}'
-  when: plugin_config.patch is defined
+# - name: "Plugin {{ plugin_name }} | Debug patch"
+#   vars:
+#     patch_type: "{{ plugin_config.patch.type | default('json') }}"
+#     patch_data_to_json: "{{ plugin_config.patch.data | to_json }}"
+#     patch_data_to_yaml: "{{ plugin_config.patch.data | to_yaml }}"
+#     debug_data: >-
+#       {%
+#         if patch_type == 'json'
+#       %}
+#         {{ patch_data_to_json }}
+#       {% else %}
+#         {{ patch_data_to_yaml }}
+#       {% endif %}
+#   ansible.builtin.debug:
+#     msg:
+#       - "Plugin: {{ plugin_name }}"
+#       - "Patch type: {{ patch_type }}"
+#       - "Patch resource: {{ plugin_config.patch.resource }}"
+#       - "Patch data string: {{ debug_data }}"
+#   when: plugin_config.patch is defined
+#   tags: plugin-patch-debug
+
+- name: "Plugin {{ plugin_name }} | Apply {{ plugin_config.patch.type | default('json') }} Patch"
+  vars:
+    patch_type: "{{ plugin_config.patch.type | default('json') }}"
+    patch_data: "{{ plugin_config.patch.data | to_json }}"
+  ansible.builtin.shell: |
+    kubectl patch {{ plugin_config.patch.resource }} \
+      -n {{ plugin_config.namespace | default('kube-system') }} \
+      --type {{ patch_type }} -p '{{ patch_data }}'
+  when: 
+    - plugin_config['patch'] is defined
+    - plugin_config['patch'] is mapping
   changed_when: true
-  tags: [ "plugin-{{ plugin_name }}", "plugin-patch" ]
+  tags: plugin-patch-apply
 
 - name: "Plugin {{ plugin_name }} | Wait for Resource Ready"
   vars:
@@ -62,17 +120,18 @@
       {{ plugin_config.wait.labels | join(',') if plugin_config.wait.labels is sequence
          else plugin_config.wait.labels }}
   ansible.builtin.command: >
-    kubectl wait --for=condition=Ready {{ plugin_config.wait.resource }}
+    kubectl wait --for=condition=Ready {{ plugin_config.wait.resource | default('pod') }}
     -n {{ plugin_config.namespace | default('kube-system') }}
     --selector="{{ _selector }}"
-    --timeout=120s --all
+    --timeout={{ plugin_config.wait.timeout | default('5m') }}
   when: 
-    - plugin_config.wait is defined
-    - plugin_config.wait.resource is defined
-    - plugin_config.wait.labels is defined
+    - plugin_config['wait'] is defined
+    - plugin_config['wait'] is mapping
+    - plugin_config['wait']['enabled'] | default(true) | bool
+    - plugin_config['wait']['labels'] is defined
   failed_when: false
   changed_when: false
-  tags: [ "plugin-{{ plugin_name }}", "plugin-wait" ]
+  tags: plugin-wait-ready
 
 - name: "Plugin {{ plugin_name }} | Apply Custom Configuration"
   ansible.builtin.command: >
@@ -80,9 +139,10 @@
   args:
     stdin: "{{ plugin_config.configuration.data }}"
   when: 
-    - plugin_config.configuration is defined
-    - plugin_config.configuration.data is defined
+    - plugin_config['configuration'] is defined
+    - plugin_config['configuration'] is mapping
+    - plugin_config['configuration']['data'] is defined
   changed_when: true
   retries: 5
   delay: 15
-  tags: [ "plugin-{{ plugin_name }}", "plugin-cfg" ]
+  tags: plugin-post-config

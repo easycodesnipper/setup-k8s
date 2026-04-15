@@ -13,14 +13,17 @@
         cmd: kubeadm config images pull --kubernetes-version={{ k8s_version }}
       register: pull_result
       changed_when: "'Image pull finished' in pull_result.stdout"
+      retries: 30
+      delay: 10
+      until: pull_result is success
 
     - name: Initialize Kubernetes cluster
       ansible.builtin.command: >
         kubeadm init
         --control-plane-endpoint={{ k8s_api_server_endpoint }}
         --pod-network-cidr={{ k8s_pod_network_cidr | default('10.244.0.0/16') }}
-        --service-cidr={{ k8s_service_cidr }}
-        --ignore-preflight-errors={{ k8s_ignore_preflight_errors | join(',') }}
+        --service-cidr={{ k8s_service_cidr | default('10.96.0.0/12') }}
+        --ignore-preflight-errors={{ k8s_ignore_preflight_errors | default(['Mem', 'NumCPU']) | join(',') }}
         --upload-certs
         --v={{ k8s_verbosity }}
       register: kubeadm_init

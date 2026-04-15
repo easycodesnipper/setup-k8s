@@ -1,47 +1,42 @@
 # roles/plugin/defaults/main.yml
 ---
 k8s_plugins:
-################################### flannel ###################################
+################################### cni-flannel ###################################
   # CNI - flannel
-  flannel:
+  cni-flannel:
     namespace: "kube-system"
     manifest: "https://github.com/flannel-io/flannel/releases/download/v{{ k8s_plugin_flannel_version | default('0.27.4') }}/kube-flannel.yml"
     wait:
-      resource: pod
       labels: "k8s-app=flannel"
 
-################################### calico ###################################
+################################### cni-calico ###################################
   # CNI - calico
-  calico:
+  cni-calico:
     namespace: "kube-system"
     manifest: "https://raw.githubusercontent.com/projectcalico/calico/v{{ k8s_plugin_calico_version | default('3.31.1') }}/manifests/calico.yaml"
-    patch:
+    patch: # how to validate: kubectl get daemonset calico-node -n kube-system -o json | jq '.spec.template.spec.containers[0].env[] | select(.name=="CALICO_IPV4POOL_CIDR")'
+      type: strategic
       resource: "daemonset/calico-node"
-      data: >-
-        {{
-          [
-            {
-              "op": "add",
-              "path": "/spec/template/spec/containers/0/env/-",
-              "value": {
-                "name": "CALICO_IPV4POOL_CIDR",
-                "value": "{{ k8s_pod_network_cidr | default('10.244.0.0/16') }}"
-              }
-            }
-          ] | to_json
-        }}
+      data:
+        spec:
+          template:
+            spec:
+              containers:
+              - name: calico-node
+                env:
+                - name: CALICO_IPV4POOL_CIDR
+                  value: "{{ k8s_pod_network_cidr | default('10.244.0.0/16') }}"
     wait:
-      resource: pod
       labels: "k8s-app=calico"
 
-################################### cilium ###################################
+################################### cni-cilium ###################################
   # CNI - cilium
-  cilium:
+  cni-cilium:
     namespace: "{{ k8s_plugin_cilium_namespace | default('cilium-system') }}"
     helm:
       repository:
-        name: "cilium"
-        url: "https://helm.cilium.io"
+        name: "{{ k8s_plugin_cilium_helm_repo_name | default('cilium') }}"
+        url: "{{ k8s_plugin_cilium_helm_repo_url | default('https://helm.cilium.io') }}"
       release: "cilium"
       chart: "cilium/cilium"
       version: "{{ k8s_plugin_cilium_version | default('1.19.0') }}" # helm search repo cilium/cilium --versions
@@ -61,7 +56,6 @@ k8s_plugins:
             clusterPoolIPv4PodCIDRList:
               - "{{ k8s_pod_network_cidr | default('10.244.0.0/16') }}"
     wait:
-      resource: pod
       labels: "k8s-app=cilium"
 
 ################################### metallb ###################################
@@ -70,10 +64,9 @@ k8s_plugins:
     enabled: "{{ k8s_plugin_metallb_enabled | default(true) | bool }}"
     namespace: "metallb-system"
     manifest: "https://raw.githubusercontent.com/metallb/metallb/v\
-      {{ k8s_plugin_metallb_version | default('0.13.12') }}\
+      {{ k8s_plugin_metallb_version | default('0.15.3') }}\
       /config/manifests/metallb-native.yaml"
     wait:
-      resource: pod
       labels: "app=metallb"
     configuration:
       data: |
@@ -83,7 +76,7 @@ k8s_plugins:
           name: default-pool
           namespace: metallb-system
         spec:
-          addresses: {{ k8s_plugin_metallb_ip_range | default(['10.17.3.240-10.17.3.250']) }}
+          addresses: {{ k8s_plugin_metallb_ip_range | default(['10.17.3.200-10.17.3.249']) }}
         ---
         apiVersion: metallb.io/v1beta1
         kind: L2Advertisement
@@ -99,58 +92,39 @@ k8s_plugins:
   metrics-server:
     enabled: "{{ k8s_plugin_metrics_server_enabled | default(true) | bool }}"
     namespace: "kube-system"
-    manifest:
-      "https://github.com/kubernetes-sigs/metrics-server/releases/download/v\
-      {{ k8s_plugin_metrics_server_version | default('0.8.0') }}\
-      /components.yaml"
-    patch:
+    manifest: "https://github.com/kubernetes-sigs/metrics-server/releases/download/v{{ k8s_plugin_metrics_server_version | default('0.8.1') }}/components.yaml"
+    patch: # how to validate: kubectl get deployment metrics-server -n kube-system -o json | jq '.spec.template.spec.containers[0].args'
+      type: json
       resource: "deployment/metrics-server"
-      data: >-
-        {{
-          [
-            {
-              "op": "add",
-              "path": "/spec/template/spec/containers/0/args/-",
-              "value": "--kubelet-insecure-tls"
-            }
-          ] | to_json
-        }}
+      data:
+        [
+          {
+            "op": "add",
+            "path": "/spec/template/spec/containers/0/args/-",
+            "value": "--kubelet-insecure-tls"
+          }
+        ]
     wait:
-      resource: pod
       labels: "k8s-app=metrics-server"
 
 ################################### local-path-provisioner ###################################
   # Local Path Provisioner to provision local storage
   local-path-provisioner:
-    enabled: "{{ k8s_plugin_local_path_provisioner_enabled | default(true) | bool }}"
+    enabled: "{{ k8s_plugin_local_path_provisioner_enabled | default(false) | bool }}"
     namespace: "local-path-storage"
-    manifest:
-      "https://raw.githubusercontent.com/rancher/local-path-provisioner/v\
-      {{ k8s_plugin_local_path_provisioner_version | default('0.0.32') }}\
-      /deploy/local-path-storage.yaml"
-    patch:
+    manifest: "https://raw.githubusercontent.com/rancher/local-path-provisioner/v{{ k8s_plugin_local_path_provisioner_version | default('0.0.35') }}/deploy/local-path-storage.yaml"
+    patch: # how to validate: kubectl get configmap local-path-config -n local-path-storage -o json | jq '.data["config.json"] | fromjson'
+      type: json
       resource: "configmap/local-path-config"
-      data: >-
-        {{
-          [
-            {
-              "op": "replace",
-              "path": "/data/config.json",
-              "value": {
-                "nodePathMap": [
-                  {
-                    "node": "DEFAULT_PATH_FOR_NON_LISTED_NODES",
-                    "paths": [
-                      k8s_plugin_local_path_provisioner_default_path | default('/var/local/rancher/local-path-provisioner')
-                    ]
-                  }
-                ]
-              } | to_json
-            }
-          ] | to_json
-        }}
+      data:
+        [
+          {
+            "op": "replace",
+            "path": "/data/config.json",
+            "value": "{{ {'nodePathMap': [{'node': 'DEFAULT_PATH_FOR_NON_LISTED_NODES', 'paths': [k8s_plugin_local_path_provisioner_default_path | default('/var/local/rancher/local-path')]}]} | to_json }}"
+          }
+        ]
     wait:
-      resource: pod
       labels: "app=local-path-provisioner"
 
 ################################### longhorn ###################################
@@ -160,8 +134,8 @@ k8s_plugins:
     namespace: "{{ k8s_plugin_longhorn_namespace | default('longhorn-system') }}"
     helm:
       repository:
-        name: "longhorn"
-        url: "https://charts.longhorn.io"
+        name: "{{ k8s_plugin_longhorn_helm_repo_name | default('longhorn') }}"
+        url: "{{ k8s_plugin_longhorn_helm_repo_url | default('https://charts.longhorn.io') }}"
       release: "longhorn"
       chart: "longhorn/longhorn"
       version: "{{ k8s_plugin_longhorn_version | default('1.11.1') }}" # helm search repo longhorn/longhorn --versions
@@ -176,7 +150,6 @@ k8s_plugins:
         longhornUI:
           replicas: "{{ k8s_plugin_longhorn_ui_replicas | default(1) | int }}"
     wait:
-      resource: pod
       labels: "app.kubernetes.io/instance=longhorn"
 
 ################################### headlamp ###################################
@@ -186,8 +159,8 @@ k8s_plugins:
     namespace: "headlamp-system"
     helm:
       repository:
-        name: "headlamp"
-        url: "https://kubernetes-sigs.github.io/headlamp/"
+        name: "{{ k8s_plugin_headlamp_helm_repo_name | default('headlamp') }}"
+        url: "{{ k8s_plugin_headlamp_helm_repo_url | default('https://kubernetes-sigs.github.io/headlamp/') }}"
       release: "headlamp"
       chart: "headlamp/headlamp"
       version: "{{ k8s_plugin_headlamp_version | default('0.41.0') }}" # helm search repo headlamp/headlamp --versions
@@ -195,7 +168,6 @@ k8s_plugins:
         service:
           type: "{{ k8s_plugin_headlamp_service_type | default('LoadBalancer') }}"
     wait:
-      resource: pod
       labels: "app.kubernetes.io/name=headlamp"
     configuration:
       data: |
@@ -226,3 +198,16 @@ k8s_plugins:
           annotations:
             kubernetes.io/service-account.name: "headlamp-user"
         type: kubernetes.io/service-account-token
+
+################################### devops-gitlab ###################################
+  devops-gitlab:
+    enabled: "{{ k8s_plugin_gitlab_enabled | default(true) }}"
+    namespace: "{{ k8s_plugin_gitlab_namespace | default('gitlab-system') }}"
+    helm:
+      repository:
+        name: "{{ k8s_plugin_gitlab_helm_repo_name | default('gitlab') }}"
+        url: "{{ k8s_plugin_gitlab_helm_repo_url | default('https://charts.gitlab.io') }}"
+      release: "{{ k8s_plugin_gitlab_helm_release | default('gitlab') }}"
+      chart: "{{ k8s_plugin_gitlab_helm_chart | default('gitlab/gitlab') }}"
+      version: "{{ k8s_plugin_gitlab_version | default('9.10.3') }}" # helm search repo gitlab/gitlab --versions
+      # helm show values gitlab/gitlab --version 9.10.3 | sed -e '/^\s*#/d' -e '/^\s*$/d'

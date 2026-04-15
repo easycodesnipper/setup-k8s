@@ -38,7 +38,7 @@
     - role: cni
   tags: cni
 
-- name: Confirmation gate for plugins installation
+- name: Confirmation gate to install plugins
   hosts: localhost
   gather_facts: false
   vars:
@@ -46,7 +46,7 @@
   tasks:
     - name: Prompt for confirmation
       ansible.builtin.pause:
-        prompt: "Do you want to post-install Kubernetes plugins? (y/n)"
+        prompt: "Do you want to post install Kubernetes plugins? (y/n)"
       register: plugin_confirm
       when:
         - k8s_plugins_enabled_final
@@ -59,7 +59,7 @@
   tags: postinstall-plugins
 
 - name: Post install Kubernetes plugins
-  import_playbook: playbook-postinstall-plugins.yml
+  import_playbook: playbook-plugins.yml
   when:
     - hostvars['localhost']['should_install_plugins'] | default(true) | bool
   tags: postinstall-plugins

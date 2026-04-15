@@ -1,6 +1,6 @@
 ---
 # Helm version to install
-helm_version: "4.0.0"
+helm_version: "3.16.4"
 
 # Operating system platform (e.g., linux, darwin, windows)
 helm_platform: "{{ ansible_facts['system'] | lower }}"

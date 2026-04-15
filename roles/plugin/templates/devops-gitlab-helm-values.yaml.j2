@@ -1,0 +1,55 @@
+# roles/devops/templates/devops-gitlab-values.yaml.j2
+global:
+  edition: {{ k8s_plugin_gitlab_global_edition | default('ce') }}
+{% if k8s_plugin_gitlab_global_external_url is defined %}
+  external_url: {{ k8s_plugin_gitlab_global_external_url }}
+{% else %}
+  external_url: "{{ 'https' if k8s_plugin_gitlab_hosts_https | default(false) else 'http' }}://{{ k8s_plugin_gitlab_hosts_domain | default('gitlab.local') }}"
+{% endif %}
+  hosts:
+    domain: {{ k8s_plugin_gitlab_hosts_domain | default('gitlab.local') }}
+    https: {{ k8s_plugin_gitlab_hosts_https | default(false) }}
+  ingress:
+    enabled: false
+    configureCertmanager: false
+
+installCertmanager: false
+
+postgresql:
+  enabled: {{ k8s_plugin_gitlab_postgresql_enabled | default(true) }}
+  persistence:
+    enabled: true
+    storageClass: {{ k8s_plugin_gitlab_postgresql_storageClass | default('longhorn') }}
+    size: {{ k8s_plugin_gitlab_postgresql_size | default('10Gi') }}
+
+redis:
+  install: true
+  master:
+    persistence:
+      enabled: true
+      storageClass: {{ k8s_plugin_gitlab_redis_storageClass | default('longhorn') }}
+      size: {{ k8s_plugin_gitlab_redis_size | default('5Gi') }}
+
+gitlab:
+  webservice:
+    service:
+      type: {{ k8s_plugin_gitlab_webservice_service_type | default('LoadBalancer') }}
+      loadBalancerIP: {{ k8s_plugin_gitlab_webservice_loadBalancerIP | default('') }}
+      loadBalancerSourceRanges: {{ k8s_plugin_gitlab_webservice_loadBalancerSourceRanges | default(['10.0.0.0/8']) | to_json }}
+      externalPort: {{ k8s_plugin_gitlab_webservice_external_port | default(80) }}
+  sidekiq:
+    replicas: {{ k8s_plugin_gitlab_sidekiq_replicas | default(1) }}
+  gitaly:
+    persistence:
+      enabled: true
+      storageClass: {{ k8s_plugin_gitlab_gitaly_storageClass | default('longhorn') }}
+      size: {{ k8s_plugin_gitlab_gitaly_size | default('50Gi') }}
+
+registry:
+  enabled: false
+
+nginx-ingress:
+  enabled: false
+
+prometheus:
+  install: false

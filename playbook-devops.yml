@@ -1,0 +1,8 @@
+- name: "Deploy DevOps tools on Kubernetes"
+  hosts: controllers
+  gather_facts: yes
+  vars:
+    k8s_plugins_only: 
+      - devops-gitlab
+  roles:
+    - role: plugin
