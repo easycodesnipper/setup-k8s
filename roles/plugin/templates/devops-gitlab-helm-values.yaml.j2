@@ -4,10 +4,10 @@ global:
 {% if k8s_plugin_gitlab_global_external_url is defined %}
   external_url: {{ k8s_plugin_gitlab_global_external_url }}
 {% else %}
-  external_url: "{{ 'https' if k8s_plugin_gitlab_hosts_https | default(false) else 'http' }}://{{ k8s_plugin_gitlab_hosts_domain | default('gitlab.local') }}"
+  external_url: "{{ 'https' if k8s_plugin_gitlab_hosts_https | default(false) else 'http' }}://gitlab.{{ k8s_plugin_gitlab_hosts_domain | default('localdomain') }}"
 {% endif %}
   hosts:
-    domain: {{ k8s_plugin_gitlab_hosts_domain | default('gitlab.local') }}
+    domain: {{ k8s_plugin_gitlab_hosts_domain | default('localdomain') }}
     https: {{ k8s_plugin_gitlab_hosts_https | default(false) }}
   ingress:
     enabled: false
@@ -34,9 +34,11 @@ gitlab:
   webservice:
     service:
       type: {{ k8s_plugin_gitlab_webservice_service_type | default('LoadBalancer') }}
-      loadBalancerIP: {{ k8s_plugin_gitlab_webservice_loadBalancerIP | default('') }}
+      #loadBalancerIP: {{ k8s_plugin_gitlab_webservice_loadBalancerIP | default('') }}
       loadBalancerSourceRanges: {{ k8s_plugin_gitlab_webservice_loadBalancerSourceRanges | default(['10.0.0.0/8']) | to_json }}
-      externalPort: {{ k8s_plugin_gitlab_webservice_external_port | default(80) }}
+      externalPort: {{ k8s_plugin_gitlab_webservice_external_port | default(8081) }}
+    workhorse:
+      trusted_ips: {{ k8s_plugin_gitlab_webservice_workhorse_trusted_ips | default(['0.0.0.0/0']) | to_json }}
   sidekiq:
     replicas: {{ k8s_plugin_gitlab_sidekiq_replicas | default(1) }}
   gitaly:
@@ -53,3 +55,7 @@ nginx-ingress:
 
 prometheus:
   install: false
+
+gitlab-runner:
+  gitlabUrl: {{ k8s_plugin_gitlab_runner_gitlabUrl | default('http://gitlab-webservice-default.gitlab-system.svc.cluster.local/') }}
+  concurrent: {{ k8s_plugin_gitlab_runner_concurrent | default(10) }}

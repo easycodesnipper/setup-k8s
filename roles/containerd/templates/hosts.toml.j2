@@ -4,4 +4,5 @@ server = "https://{{ item.key }}"
 {% for mirror in item.value %}
 [host."{{ mirror }}"]
   capabilities = ["pull", "resolve"]
+  skip_verify = {{ 'true' if (containerd_registry_mirror_skip_verify | default(true)) else 'false' }}
 {% endfor %}

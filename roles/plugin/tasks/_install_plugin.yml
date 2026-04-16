@@ -32,13 +32,7 @@
         - plugin_config['helm']['repository'] is defined
         - plugin_config['helm']['repository'] is mapping
 
-    # - name: Debug helm.values
-    #   ansible.builtin.debug:
-    #     msg: 
-    #       - "Values key exists in YAML? {{ (plugin_config['helm']['values'] is defined and plugin_config['helm']['values'] is mapping) | bool }}"
-    #       - "Values content: {{ plugin_config['helm']['values'] if plugin_config['helm']['values'] is mapping else 'NOT_PROVIDED' }}"
-
-    - name: "Write Helm values to temp file"
+    - name: "Write Helm default values to temp file"
       ansible.builtin.copy:
         content: "{{ plugin_config['helm']['values'] | deep_convert | to_nice_yaml(indent=2) }}"
         dest: "/tmp/{{ plugin_name }}-helm-values.yaml"
@@ -47,7 +41,7 @@
         - plugin_config['helm']['values'] is defined
         - plugin_config['helm']['values'] is mapping
 
-    - name: "Render Helm values from template"
+    - name: "Render Helm j2 template file values to temp file"
       ansible.builtin.template:
         src: "{{ plugin_name }}-helm-values.yaml.j2"
         dest: "/tmp/{{ plugin_name }}-helm-values.yaml"
@@ -56,15 +50,45 @@
         plugin_config['helm']['values'] is not defined or 
         plugin_config['helm']['values'] is not mapping
 
-    - name: "Install/Upgrade Helm release (using values file)"
+    - name: Ensure local chart directory exists
+      ansible.builtin.file:
+        path: "/tmp/{{ plugin_name }}-helm-chart"
+        state: directory
+        mode: '0755'
+
+    - name: Pull Helm chart to local
+      ansible.builtin.shell: |
+        set -o pipefail
+        helm pull {{ plugin_config.helm.chart }} \
+          --version {{ plugin_config.helm.version }} \
+          --destination "/tmp/{{ plugin_name }}-helm-chart"
+      args:
+        executable: /bin/bash
+      register: pull_result
+      until: pull_result is success
+      retries: 5
+      delay: 10
+      changed_when: false
+
+    - name: Find downloaded chart archive
+      ansible.builtin.find:
+        paths: "/tmp/{{ plugin_name }}-helm-chart"
+        patterns: "*.tgz"
+      register: chart_file
+
+    - name: Fail if chart not found
+      ansible.builtin.fail:
+        msg: "Helm chart not found after pull"
+      when: chart_file.files | length == 0
+
+    - name: Install/Upgrade Helm release using local chart
       vars:
         _values_file: "/tmp/{{ plugin_name }}-helm-values.yaml"
       ansible.builtin.shell: |
         set -o pipefail
-        helm upgrade --install {{ plugin_config.helm.release }} {{ plugin_config.helm.chart }} \
+        helm upgrade --install {{ plugin_config.helm.release }} {{ chart_file.files[0].path }} \
           --namespace {{ plugin_config.namespace | default('kube-system') }} \
           --create-namespace \
-          --version {{ plugin_config.helm.version }} \
           -f {{ _values_file }}
       args:
         executable: /bin/bash

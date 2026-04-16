@@ -10,7 +10,12 @@
   block:
     - name: Pull Kubernetes images using kubeadm
       ansible.builtin.command:
-        cmd: kubeadm config images pull --kubernetes-version={{ k8s_version }}
+        cmd: >-
+          kubeadm config images pull
+          --kubernetes-version={{ k8s_version }} --v={{ k8s_verbosity }}
+          {% if k8s_config_image_repository is defined and k8s_config_image_repository %}
+          --image-repository={{ k8s_config_image_repository }}
+          {% endif %}
       register: pull_result
       changed_when: "'Image pull finished' in pull_result.stdout"
       retries: 30

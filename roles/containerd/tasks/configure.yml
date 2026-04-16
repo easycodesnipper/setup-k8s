@@ -37,13 +37,13 @@
   block:
     - name: Ensure containerd certs directory exists
       ansible.builtin.file:
-        path: "{{ containerd_registry_config_path }}"
+        path: "{{ containerd_registry_mirror_config_path }}"
         state: directory
         mode: '0755'
 
     - name: Ensure registry-specific directories exist
       ansible.builtin.file:
-        path: "{{ containerd_registry_config_path }}/{{ item.key }}"
+        path: "{{ containerd_registry_mirror_config_path }}/{{ item.key }}"
         state: directory
         mode: '0755'
       loop: "{{ containerd_registry_mirrors | dict2items }}"
@@ -51,16 +51,21 @@
     - name: Generate hosts.toml for each registry mirror
       ansible.builtin.template:
         src: hosts.toml.j2
-        dest: "{{ containerd_registry_config_path }}/{{ item.key }}/hosts.toml"
+        dest: "{{ containerd_registry_mirror_config_path }}/{{ item.key }}/hosts.toml"
         mode: '0644'
       loop: "{{ containerd_registry_mirrors | dict2items }}"
       notify: Restart containerd
 
-    - name: Set config_path in containerd config.toml (if not already correct)
+    - name: Remove existing config_path lines (to avoid conflicts)
       ansible.builtin.lineinfile:
         path: /etc/containerd/config.toml
-        regexp: '^( *config_path = ).*'
-        line: '\1"{{ containerd_registry_config_path }}"'
-        backrefs: true
+        regexp: '^[[:space:]]*config_path = .*'
+        state: absent
+      notify: Restart containerd
+
+    - name: Set config_path under cri.images.registry
+      ansible.builtin.shell:
+        cmd: |
+          sed -i.bak "/^\s*\[plugins\.'io\.containerd\.cri\.v1\.images'\.registry\]/,/^\s*\[/ s/^\(\s*config_path\s*=\s*\).*/\1\"\/etc\/containerd\/certs.d\"/" /etc/containerd/config.toml
       notify: Restart containerd
   when: containerd_registry_mirror_enabled | default(false) | bool

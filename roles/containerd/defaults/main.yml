@@ -18,14 +18,13 @@ containerd_required_packages:
     # refer to https://docs.docker.com/engine/install/fedora/
     - dnf-plugins-core
 
-containerd_registry_mirror_enabled: false
-containerd_registry_config_path: "/etc/containerd/certs.d"
+containerd_registry_mirror_enabled: true
+containerd_registry_mirror_skip_verify: true
+containerd_registry_mirror_config_path: "/etc/containerd/certs.d"
 containerd_registry_mirrors:
   "docker.io":
-    - "https://mirror.ccs.tencentyun.com"
-    - "https://docker.mirrors.ustc.edu.cn"
+    - "https://docker.xuanyuan.me"
+    - "https://docker.1ms.run"
+    - "https://docker.m.daocloud.io"
   "registry.k8s.io":
-    - "https://registry.aliyuncs.com/google_containers"
-    - "https://m.daocloud.io/registry.k8s.io"
-  "quay.io":
-    - "https://quay.mirrors.ustc.edu.cn"
+    - "https://k8s.m.daocloud.io"
