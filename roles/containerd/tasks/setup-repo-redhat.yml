@@ -9,7 +9,7 @@
   block:
     - name: Add Docker CE repository using dnf config-manager
       ansible.builtin.shell: |
-        dnf-3 config-manager --add-repo {{ docker_repo }}
+        dnf-3 config-manager --add-repo {{ docker_yum_repo }}
       args:
         creates: /etc/yum.repos.d/docker-ce.repo
       register: repo_result

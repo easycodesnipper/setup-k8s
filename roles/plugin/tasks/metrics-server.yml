@@ -1,5 +1,7 @@
 ---
-- name: "Install Metrics Server"
+# roles/plugin/tasks/metrics-server.yml
+
+- name: Install Metrics Server
   include_tasks: _install_plugin.yml
   vars:
     plugin_name: metrics-server

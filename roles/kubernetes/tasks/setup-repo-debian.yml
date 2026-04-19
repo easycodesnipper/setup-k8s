@@ -60,4 +60,6 @@
         update_cache: true
         force_apt_get: true
         cache_valid_time: 0
+      retries: 3
+      delay: 10
       when: (key_install is changed) or (repo_change is changed)

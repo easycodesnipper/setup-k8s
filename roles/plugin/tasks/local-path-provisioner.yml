@@ -1,5 +1,7 @@
 ---
-- name: "Install Local Path Provisioner"
+# roles/plugin/tasks/local-path-provisioner.yml
+
+- name: Install Local Path Provisioner
   include_tasks: _install_plugin.yml
   vars:
     plugin_name: local-path-provisioner

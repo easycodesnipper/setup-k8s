@@ -1,0 +1,8 @@
+---
+# playbook-iscsi.yml
+- name: Prepare iSCSI on all workers
+  hosts: workers
+  gather_facts: yes
+  become: true
+  roles:
+    - iscsi

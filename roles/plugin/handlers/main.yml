@@ -1,0 +1,9 @@
+---
+# roles/plugin/handlers/main.yml
+- name: Restart ingress-ssh-tunnel
+  become: true
+  delegate_to: localhost
+  systemd:
+    name: ingress-ssh-tunnel
+    state: restarted
+    daemon_reload: yes

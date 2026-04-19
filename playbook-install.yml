@@ -1,4 +1,5 @@
 ---
+# playbook-install.yml
 - name: Prepare Kubernetes cluster
   hosts: k8s_cluster
   become: true
@@ -44,7 +45,7 @@
   vars:
     k8s_plugins_enabled_final: "{{ (lookup('env', 'K8S_PLUGINS_ENABLED') or k8s_plugins_enabled | default(true)) | bool }}"
   tasks:
-    - name: Prompt for confirmation
+    - name: Prompt for plugin installation confirmation
       ansible.builtin.pause:
         prompt: "Do you want to post install Kubernetes plugins? (y/n)"
       register: plugin_confirm

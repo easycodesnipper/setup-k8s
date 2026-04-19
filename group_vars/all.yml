@@ -1,12 +1,12 @@
 ---
+# group_vars/all.yml
+docker_repo_base_url: "https://mirrors.huaweicloud.com/docker-ce"
+
 ### Common Variables
 k8s_version: "1.34.2"
-k8s_major_minor: "{{ (k8s_version.split('.') | list)[0:2] | join('.') }}"
-k8s_verbosity: 2 # adjust with yours range [0-10]
-k8s_pod_network_cidr: "10.244.0.0/16"
-
-k8s_cni: "flannel"
 
 ### Plugins Variables
-k8s_plugin_metallb_ip_range:
+k8s_plugin_metallb_ip_address_pool_default:
   - "10.17.3.240-10.17.3.250" # adjust with yours
+
+k8s_plugin_manifest_proxy: "https://ghproxy.net"

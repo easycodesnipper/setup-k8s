@@ -1,4 +1,6 @@
 ---
+k8s_major_minor: "{{ (k8s_version.split('.') | list)[0:2] | join('.') }}"
+
 k8s_required_packages:
   Debian:
     # refer to https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/#k8s-install-0

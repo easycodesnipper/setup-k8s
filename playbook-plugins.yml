@@ -1,15 +1,9 @@
 ---
-- name: Prepare iSCSI for storage plugins
-  hosts: k8s_cluster
-  become: true
-  roles:
-    - role: iscsi
-
 - name: Install Kubernetes plugins
   hosts: controllers
   gather_facts: true
   roles:
     - role: plugin
 
-# An example to install specified plugins
+# An example: how to install specified plugins
 # ansible-playbook -i inventory.ini playbook-postinstall-plugins.yml   -e "k8s_plugins_only=cni-calico,metallb,metrics-server"

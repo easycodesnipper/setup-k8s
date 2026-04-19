@@ -1,5 +1,7 @@
 ---
-- name: "Install Headlamp"
+# roles/plugin/tasks/headlamp.yml
+
+- name: Install Headlamp
   include_tasks: _install_plugin.yml
   vars:
     plugin_name: headlamp

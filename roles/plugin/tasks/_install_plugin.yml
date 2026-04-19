@@ -1,36 +1,75 @@
 # roles/plugin/tasks/_install_plugin.yml
 ---
 - name: "Plugin {{ plugin_name }} | Install via Manifest"
-  ansible.builtin.command:
-    cmd: "kubectl apply -f {{ plugin_config.manifest }}"
-  when: 
+  block:
+    - name: "Set local manifest path"
+      ansible.builtin.set_fact:
+        local_manifest_path: "/tmp/plugin_{{ plugin_name }}-manifest.yaml"
+
+    - name: "Download manifest if not exists"
+      ansible.builtin.shell: |
+        set -o pipefail
+        curl -fsSL {{ plugin_config['manifest'] }} -o {{ local_manifest_path }}
+      args:
+        creates: "{{ local_manifest_path }}"
+        executable: /bin/bash
+      register: manifest_download
+      until: manifest_download is success
+      retries: 5
+      delay: 15
+
+    - name: "Apply via local manifest"
+      ansible.builtin.command:
+        cmd: "kubectl apply -f {{ local_manifest_path }}"
+      changed_when: true
+  when:
     - plugin_config['manifest'] is defined
     - plugin_config['manifest'] is string
-  changed_when: true
   tags: plugin-install-via-manifest
 
-- name: "Plugin {{ plugin_name }} | Helm Operations"
+- name: "Plugin {{ plugin_name }} | Install via Helm"
   block:
-    - name: "Add Helm repository"
+    - name: Install Helm
+      include_role:
+        name: helm
+      run_once: true
+  
+    - name: Check if Helm repository already exists
       ansible.builtin.command: >
-        helm repo add {{ plugin_config.helm.repository.name }} {{ plugin_config.helm.repository.url }}
-      register: helm_repo_add
-      until: helm_repo_add is success
-      retries: 5
-      delay: 10
-      changed_when: "'has been added' in helm_repo_add.stdout"
-      when: 
+        helm repo list --output yaml
+      register: helm_repo_list
+      changed_when: false
+      failed_when: false
+      when:
         - plugin_config['helm']['repository'] is defined
         - plugin_config['helm']['repository'] is mapping
 
-    - name: "Update Helm repository"
-      ansible.builtin.command: >
-        helm repo update {{ plugin_config.helm.repository.name }}
-      changed_when: false
-      failed_when: false
-      when: 
-        - plugin_config['helm']['repository'] is defined
-        - plugin_config['helm']['repository'] is mapping
+    - name: Add Helm repository and update if not present
+      block:
+        - name: Add Helm repository only if missing
+          ansible.builtin.command: >
+            helm repo add {{ plugin_config.helm.repository.name }} {{ plugin_config.helm.repository.url }}
+          register: helm_repo_add
+          until: helm_repo_add is success
+          retries: 5
+          delay: 10
+          changed_when: "'has been added' in helm_repo_add.stdout"
+          when:
+            - plugin_config['helm']['repository'] is defined
+            - plugin_config['helm']['repository'] is mapping
+
+        - name: Update Helm repository index
+          ansible.builtin.command: >
+            helm repo update {{ plugin_config.helm.repository.name }}
+          register: helm_repo_update
+          until: helm_repo_update is success
+          retries: 5
+          delay: 10
+          changed_when: false
+          when:
+            - plugin_config['helm']['repository'] is defined
+            - plugin_config['helm']['repository'] is mapping
+      when: (helm_repo_list.stdout | from_yaml | selectattr('name', 'equalto', plugin_config.helm.repository.name) | list | length) == 0
 
     - name: "Write Helm default values to temp file"
       ansible.builtin.copy:
@@ -47,8 +86,8 @@
         dest: "/tmp/{{ plugin_name }}-helm-values.yaml"
         mode: '0644'
       when: >
-        plugin_config['helm']['values'] is not defined or 
-        plugin_config['helm']['values'] is not mapping
+        (plugin_config['helm']['values'] is not defined)
+        or (plugin_config['helm']['values'] is not mapping)
 
     - name: Ensure local chart directory exists
       ansible.builtin.file:
@@ -56,7 +95,17 @@
         state: directory
         mode: '0755'
 
-    - name: Pull Helm chart to local
+    - name: Set expected chart file path
+      ansible.builtin.set_fact:
+        _chart_file_path: "/tmp/{{ plugin_name }}-helm-chart/{{ plugin_config.helm.chart | split('/') | last }}-{{ plugin_config.helm.version }}.tgz"
+
+    - name: Check if chart archive already exists
+      ansible.builtin.stat:
+        path: "{{ _chart_file_path }}"
+      register: _chart_stat
+
+    - name: Pull Helm chart to local directory (only if missing)
+      when: not _chart_stat.stat.exists
       ansible.builtin.shell: |
         set -o pipefail
         helm pull {{ plugin_config.helm.chart }} \
@@ -68,25 +117,19 @@
       until: pull_result is success
       retries: 5
       delay: 10
-      changed_when: false
+      changed_when: true
 
-    - name: Find downloaded chart archive
-      ansible.builtin.find:
-        paths: "/tmp/{{ plugin_name }}-helm-chart"
-        patterns: "*.tgz"
-      register: chart_file
-
-    - name: Fail if chart not found
+    - name: Fail if chart file still missing (e.g., pull failed or wrong naming)
       ansible.builtin.fail:
-        msg: "Helm chart not found after pull"
-      when: chart_file.files | length == 0
+        msg: "Helm chart not found at {{ _chart_file_path }}"
+      when: not _chart_stat.stat.exists and (pull_result is skipped or pull_result.failed)
 
-    - name: Install/Upgrade Helm release using local chart
+    - name: Install/Upgrade Helm release with local chart
       vars:
         _values_file: "/tmp/{{ plugin_name }}-helm-values.yaml"
       ansible.builtin.shell: |
         set -o pipefail
-        helm upgrade --install {{ plugin_config.helm.release }} {{ chart_file.files[0].path }} \
+        helm upgrade --install {{ plugin_config.helm.release }} {{ _chart_file_path }} \
           --namespace {{ plugin_config.namespace | default('kube-system') }} \
           --create-namespace \
           -f {{ _values_file }}

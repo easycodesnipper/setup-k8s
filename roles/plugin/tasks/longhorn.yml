@@ -1,5 +1,16 @@
 ---
-- name: "Install Longhorn"
+# roles/plugin/tasks/longhorn.yml
+
+- name: Prepare iSCSI on all workers
+  command: >
+    /usr/bin/ansible-playbook
+    -i {{ playbook_dir }}/inventory.ini
+    {{ playbook_dir }}/playbook-iscsi.yml
+  run_once: true
+  changed_when: false
+  delegate_to: localhost
+
+- name: Install Longhorn
   include_tasks: _install_plugin.yml
   vars:
     plugin_name: longhorn

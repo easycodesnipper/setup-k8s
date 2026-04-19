@@ -1,5 +1,3 @@
-k8s_api_server_endpoint: "{{ ansible_host }}:6443"
-k8s_service_cidr: "10.96.0.0/12"
 k8s_ignore_preflight_errors:
-  - "Mem"
-  - "NumCPU"
+  - Mem
+  - NumCPU

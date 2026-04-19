@@ -1,0 +1,49 @@
+---
+# roles/plugin/tasks/traefik.yml
+
+- name: Setup mkcert CA and wildcard certificates
+  include_tasks: setup_ca_cert.yml
+  tags: 
+    - plugin-traefik
+    - cert-setup
+
+- name: Install Traefik Ingress 
+  include_tasks: _install_plugin.yml
+  vars:
+    plugin_name: traefik
+    plugin_config: "{{ k8s_plugins[plugin_name] }}"
+  tags: plugin-traefik
+
+- name: Post-Install Traefik Configurations
+  block:
+    - name: Create Global HTTPS Redirect Middleware
+      ansible.builtin.shell:
+        cmd: |
+          cat <<EOF | kubectl apply -f -
+          apiVersion: traefik.io/v1alpha1
+          kind: Middleware
+          metadata:
+            name: {{ k8s_plugin_traefik_middleware | default('redirect-https') }}
+            namespace: {{ k8s_plugin_traefik_namespace | default('traefik-system') }}
+          spec:
+            redirectScheme:
+              scheme: https
+              permanent: true
+          EOF
+      register: middleware_result
+      until: middleware_result.rc == 0
+      retries: 5
+      delay: 5
+
+    - name: Deploy CA Server Ingress (Bypassing Redirect)
+      include_tasks: setup_ca_ingress.yml
+  tags: 
+    - plugin-traefik]
+    - cert-setup
+
+- name: Create SSH tunnel for Traefik ingress
+  include_tasks: ingress-ssh-tunnel.yml
+  tags:
+    - plugin-traefik
+    - tunnel-setup
+

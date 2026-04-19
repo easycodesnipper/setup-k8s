@@ -3,9 +3,10 @@ docker_distro_mapping:
   rocky: centos
   almalinux: centos
 
-docker_distro: "{{ docker_distro_mapping[ansible_facts['distribution'] | lower] | default(ansible_facts['distribution'] | lower) }}"
+docker_gpg_keyrings: "/etc/apt/keyrings/docker.asc"
 
-docker_repo: "https://download.docker.com/linux/{{ docker_distro }}/docker-ce.repo"
+docker_distro: "{{ docker_distro_mapping[ansible_facts['distribution'] | lower] | default(ansible_facts['distribution'] | lower) }}"
+docker_yum_repo: "{{ docker_repo_base_url | default('https://download.docker.com') }}/linux/{{ docker_distro }}/docker-ce.repo"
 
 containerd_required_packages:
   Debian:
@@ -23,8 +24,8 @@ containerd_registry_mirror_skip_verify: true
 containerd_registry_mirror_config_path: "/etc/containerd/certs.d"
 containerd_registry_mirrors:
   "docker.io":
-    - "https://docker.xuanyuan.me"
-    - "https://docker.1ms.run"
     - "https://docker.m.daocloud.io"
   "registry.k8s.io":
     - "https://k8s.m.daocloud.io"
+  "ghcr.io":
+    - "https://ghcr.m.daocloud.io"

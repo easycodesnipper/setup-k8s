@@ -1,0 +1,29 @@
+---
+# roles/plugin/templates/headlamp-helm-values.yaml.j2
+
+{# ansible localhost -m template -a "src=roles/plugin/templates/headlamp-helm-values.yaml.j2 dest=/tmp/headlamp-values.yaml" #}
+
+{%- set hosts_list = k8s_plugin_headlamp_ingress_hosts | default(['headlamp.localdomain']) %}
+{%- set tls_enabled = k8s_plugin_headlamp_ingress_tls_enabled | default(true) | bool %}
+
+replicaCount: {{ k8s_plugin_headlamp_replica_count | default(2) }}
+
+ingress:
+  enabled: {{ k8s_plugin_headlamp_ingress_enabled | default(true) }}
+  ingressClassName: "{{ k8s_plugin_headlamp_ingress_class_name | default('traefik') }}"
+  hosts:
+{% for host in hosts_list %}
+    - host: {{ host }}
+      paths:
+        - path: /
+          # Changed from pathType to type to match official headlamp chart expectations
+          type: Prefix
+{% endfor %}
+  annotations:
+    # 1. Always include websecure if TLS is on
+    traefik.ingress.kubernetes.io/router.entrypoints: "{{ 'web, websecure' if tls_enabled else 'web' }}"
+{% if tls_enabled %}
+    # 2. Only apply the redirect middleware if TLS is actually enabled
+    traefik.ingress.kubernetes.io/router.middlewares: "{{ k8s_plugin_traefik_namespace | default('traefik-system') }}-{{ k8s_plugin_traefik_middleware | default('redirect-https') }}@kubernetescrd"
+  tls: []
+{% endif %}

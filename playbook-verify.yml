@@ -1,4 +1,5 @@
 ---
+# playbook-verify.yml
 - name: Verify Kubernetes cluster
   hosts: controllers
   tasks:

@@ -1,5 +1,7 @@
 ---
-- name: "Install CNI Calico"
+# roles/plugin/tasks/cni-calico.yml
+
+- name: Install CNI Calico
   include_tasks: _install_plugin.yml
   vars:
     plugin_name: cni-calico

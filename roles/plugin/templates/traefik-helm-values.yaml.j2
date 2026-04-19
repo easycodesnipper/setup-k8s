@@ -1,0 +1,70 @@
+---
+# roles/traefik/templates/traefik-helm-values.yaml.j2
+
+{# ansible localhost -m template -a "src=roles/plugin/templates/traefik-helm-values.yaml.j2 dest=/tmp/traefik-values.yaml" #}
+
+service:
+  annotations:
+    metallb.universe.tf/address-pool: {{ k8s_plugin_metallb_traefik_ipaddresspool_name | default('traefik-pool') }}
+    metallb.universe.tf/loadBalancerIPs: "{{ k8s_plugin_ingress_loadbalancer_ips | default(['10.17.3.222']) | join(',') }}"
+
+providers:
+  kubernetesIngress:
+    enabled: {{ k8s_plugin_traefik_provider_ingress_enabled | default(true) }}
+    publishedService:
+      enabled: {{ k8s_plugin_traefik_provider_ingress_published_service | default(true) }}
+      pathOverride: "{{ k8s_plugin_traefik_namespace | default('traefik-system') }}/traefik"
+  kubernetesCRD:
+    enabled: {{ k8s_plugin_traefik_provider_crd_enabled | default(true) }}
+    allowCrossNamespace: {{ k8s_plugin_traefik_allow_cross_namespace | default(false) }}
+    allowEmptyServices: {{ k8s_plugin_traefik_allow_empty_services | default(true) }}
+
+deployment:
+  replicas: {{ k8s_plugin_traefik_replicas | default(3) }}
+
+ports:
+  traefik:
+    port: {{ k8s_plugin_traefik_ports_traefik_port | default(8080) }}
+    expose:
+      default: true
+    exposedPort: {{ k8s_plugin_traefik_ports_traefik_exposed_port | default(8080) }}
+    protocol: TCP
+  web:
+    port: {{ k8s_plugin_traefik_ports_web_port | default(80) }}
+    expose:
+      default: true
+    exposedPort: {{ k8s_plugin_traefik_ports_web_exposed_port | default(80) }}
+    protocol: TCP
+    # Using middleware instead.
+    #http:
+    #  redirections:
+    #    entryPoint:
+    #      to: websecure
+    #      scheme: https
+    #      permanent: true
+  websecure:
+    port: {{ k8s_plugin_traefik_ports_websecure_port | default(443) }}
+    expose:
+      default: true
+    exposedPort: {{ k8s_plugin_traefik_ports_websecure_exposed_port | default(443) }}
+    protocol: TCP
+    http:
+      tls:
+        enabled: {{ k8s_plugin_traefik_ports_websecure_tls_enabled | default(true) }}
+  metrics:
+    port: {{ k8s_plugin_traefik_ports_metrics_port | default(9100) }}
+    expose:
+      default: true
+    exposedPort: {{ k8s_plugin_traefik_ports_metrics_exposed_port | default(9100) }}
+    protocol: TCP
+  gitlab-shell:
+    port: {{ k8s_plugin_traefik_ports_gitlab_shell_port | default(22) }}
+    expose:
+      default: {{ k8s_plugin_traefik_ports_gitlab_shell_expose_default | default(true) }}
+    exposedPort: {{ k8s_plugin_traefik_ports_gitlab_shell_exposed_port | default(22) }}
+    protocol: TCP
+
+tlsStore:
+  default: 
+    defaultCertificate:
+      secretName: "{{ k8s_plugin_traefik_tlsstore_default_secretname | default('mkcert-wildcard-tls') }}"

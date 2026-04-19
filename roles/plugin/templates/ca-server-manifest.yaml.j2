@@ -1,0 +1,53 @@
+---
+# roles/devops/templates/ca-server-manifest.yaml.j2
+
+{# Test rendered result: ansible localhost -m template -a "src=roles/plugin/templates/ca-server-manifest.yaml.j2 dest=/tmp/ca-server.yaml" #}
+
+# Deployment: Runs a lightweight Nginx to serve the rootCA.pem file
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ca-server
+  namespace: {{ k8s_plugin_traefik_namespace | default('traefik-system') }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ca-server
+  template:
+    metadata:
+      labels:
+        app: ca-server
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: ca-vol
+          # Mount the specific CA file into Nginx's default HTML directory
+          mountPath: /usr/share/nginx/html/rootCA.pem
+          subPath: rootCA.pem
+        - name: ca-vol
+          # Mount the generated index.html for downloading
+          mountPath: /usr/share/nginx/html/index.html
+          subPath: index.html
+      volumes:
+      - name: ca-vol
+        configMap:
+          name: ca-dist-config
+---
+# Service: Internal ClusterIP for ca-server
+apiVersion: v1
+kind: Service
+metadata:
+  name: ca-server
+  namespace: {{ k8s_plugin_traefik_namespace | default('traefik-system') }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 80
+  selector:
+    app: ca-server

@@ -20,13 +20,21 @@
       changed_when: false
       check_mode: false
 
+    - name: Construct Docker GPG key URL
+      ansible.builtin.set_fact:
+        docker_gpg_url: "{{ docker_repo_base_url | default('https://download.docker.com') }}/linux/{{ ansible_facts['distribution'] | lower }}/gpg"
+
+    # - name: Debug Docker GPG key URL
+    #   ansible.builtin.debug:
+    #     var: docker_gpg_url
+
     - name: Download Docker GPG key (ASCII armored)
       ansible.builtin.shell: |
         set -o pipefail
-        curl -fsSL https://download.docker.com/linux/{{ ansible_facts['distribution'] | lower }}/gpg -o /etc/apt/keyrings/docker.asc
-        chmod a+r /etc/apt/keyrings/docker.asc
+        curl -fsSL "{{ docker_gpg_url }}" -o "{{ docker_gpg_keyrings }}"
+        chmod a+r {{ docker_gpg_keyrings }}
       args:
-        creates: /etc/apt/keyrings/docker.asc
+        creates: "{{ docker_gpg_keyrings }}"
         executable: /bin/bash
       register: gpg_download
       until: gpg_download is success
@@ -38,11 +46,11 @@
         path: /etc/apt/sources.list.d/docker.sources
         block: |
           Types: deb
-          URIs: https://download.docker.com/linux/{{ ansible_facts['distribution'] | lower }}
+          URIs: {{ docker_repo_base_url | default('https://download.docker.com') }}/linux/{{ ansible_facts['distribution'] | lower }}
           Suites: {{ ansible_facts['distribution_release'] }}
           Components: stable
           Architectures: {{ dpkg_arch.stdout }}
-          Signed-By: /etc/apt/keyrings/docker.asc
+          Signed-By: {{ docker_gpg_keyrings }}
         marker: "# {mark} DOCKER REPO CONFIGURATION"
         create: true
         mode: "0644"

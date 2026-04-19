@@ -1,4 +1,13 @@
+---
 # roles/devops/templates/devops-gitlab-values.yaml.j2
+
+{%- set tls_enabled = k8s_plugin_gitlab_global_ingress_tls_enabled | default(true) | bool %}
+
+upgradeCheck:
+  enabled: {{ k8s_plugin_gitlab_upgrade_check_enabled | default(false) }}
+
+installCertmanager: {{ k8s_plugin_gitlab_install_certmanager | default(true) }}
+
 global:
   edition: {{ k8s_plugin_gitlab_global_edition | default('ce') }}
 {% if k8s_plugin_gitlab_global_external_url is defined %}
@@ -10,16 +19,23 @@ global:
     domain: {{ k8s_plugin_gitlab_hosts_domain | default('localdomain') }}
     https: {{ k8s_plugin_gitlab_hosts_https | default(false) }}
   ingress:
-    enabled: false
-    configureCertmanager: false
-
-installCertmanager: false
+    enabled: {{ k8s_plugin_gitlab_global_ingress_enabled | default(true) }}
+    configureCertmanager: {{ k8s_plugin_gitlab_global_ingress_configure_certmanager | default(false) }}
+    provider: {{ k8s_plugin_gitlab_global_ingress_provider | default('traefik') }}
+    class: {{ k8s_plugin_gitlab_global_ingress_class | default('traefik') }}
+    annotations:
+      # 1. Always include websecure if TLS is on
+      traefik.ingress.kubernetes.io/router.entrypoints: "{{ 'web, websecure' if tls_enabled else 'web' }}"
+{% if tls_enabled %}
+      # 2. Only apply the redirect middleware if TLS is actually enabled
+      traefik.ingress.kubernetes.io/router.middlewares: "{{ k8s_plugin_traefik_namespace | default('traefik-system') }}-{{ k8s_plugin_traefik_middleware | default('redirect-https') }}@kubernetescrd"
+{% endif %}
 
 postgresql:
   enabled: {{ k8s_plugin_gitlab_postgresql_enabled | default(true) }}
   persistence:
     enabled: true
-    storageClass: {{ k8s_plugin_gitlab_postgresql_storageClass | default('longhorn') }}
+    storageClass: {{ k8s_plugin_gitlab_postgresql_storage_class | default('longhorn') }}
     size: {{ k8s_plugin_gitlab_postgresql_size | default('10Gi') }}
 
 redis:
@@ -27,16 +43,11 @@ redis:
   master:
     persistence:
       enabled: true
-      storageClass: {{ k8s_plugin_gitlab_redis_storageClass | default('longhorn') }}
+      storageClass: {{ k8s_plugin_gitlab_redis_storage_class | default('longhorn') }}
       size: {{ k8s_plugin_gitlab_redis_size | default('5Gi') }}
 
 gitlab:
   webservice:
-    service:
-      type: {{ k8s_plugin_gitlab_webservice_service_type | default('LoadBalancer') }}
-      #loadBalancerIP: {{ k8s_plugin_gitlab_webservice_loadBalancerIP | default('') }}
-      loadBalancerSourceRanges: {{ k8s_plugin_gitlab_webservice_loadBalancerSourceRanges | default(['10.0.0.0/8']) | to_json }}
-      externalPort: {{ k8s_plugin_gitlab_webservice_external_port | default(8081) }}
     workhorse:
       trusted_ips: {{ k8s_plugin_gitlab_webservice_workhorse_trusted_ips | default(['0.0.0.0/0']) | to_json }}
   sidekiq:
@@ -44,8 +55,12 @@ gitlab:
   gitaly:
     persistence:
       enabled: true
-      storageClass: {{ k8s_plugin_gitlab_gitaly_storageClass | default('longhorn') }}
+      storageClass: {{ k8s_plugin_gitlab_gitaly_storage_class | default('longhorn') }}
       size: {{ k8s_plugin_gitlab_gitaly_size | default('50Gi') }}
+
+gitlab-shell:
+  traefik:
+    entrypoint: {{ k8s_plugin_gitlab_gitlab_shell_traefik_entrypoint | default('gitlab-shell') }}
 
 registry:
   enabled: false
@@ -53,9 +68,12 @@ registry:
 nginx-ingress:
   enabled: false
 
+traefik:
+  install: false
+
 prometheus:
   install: false
 
 gitlab-runner:
-  gitlabUrl: {{ k8s_plugin_gitlab_runner_gitlabUrl | default('http://gitlab-webservice-default.gitlab-system.svc.cluster.local/') }}
+  gitlabUrl: {{ k8s_plugin_gitlab_runner_gitlab_url | default('http://gitlab-webservice-default.gitlab-system.svc.cluster.local/') }}
   concurrent: {{ k8s_plugin_gitlab_runner_concurrent | default(10) }}

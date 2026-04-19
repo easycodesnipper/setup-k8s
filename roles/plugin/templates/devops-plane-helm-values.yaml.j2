@@ -1,0 +1,41 @@
+# roles/devops/templates/devops-plane-helm-values.yaml.j2
+ingress:
+  enabled: {{ k8s_plugin_plane_ingress_enabled | default(true) }}
+  appHost: {{ k8s_plugin_plane_ingress_app_host | default('plane.localdomain') }}
+  ingressClass: {{ k8s_plugin_plane_ingress_class | default('traefik') }}
+  annotations:
+    traefik.ingress.kubernetes.io/router.tls: "{{ 'true' if k8s_plugin_plane_ingress_tls_enabled | default(false) else 'false' }}"
+    traefik.ingress.kubernetes.io/router.entrypoints: "{{ 'websecure' if k8s_plugin_plane_ingress_tls_enabled | default(false) else 'web' }}"
+
+redis:
+  local_setup: {{ k8s_plugin_plane_redis_local_setup | default(true) }}
+  storage_class: {{ k8s_plugin_plane_redis_storage_class | default('longhorn') }}
+  volume_size: {{ k8s_plugin_plane_redis_volume_size | default('2Gi') }}
+
+postgres:
+  local_setup: {{ k8s_plugin_plane_postgres_local_setup | default(true) }}
+  storage_class: {{ k8s_plugin_plane_postgres_storage_class | default('longhorn') }}
+  volume_size: {{ k8s_plugin_plane_postgres_volume_size | default('20Gi') }}
+
+rabbitmq:
+  local_setup: {{ k8s_plugin_plane_rabbitmq_local_setup | default(true) }}
+  storage_class: {{ k8s_plugin_plane_rabbitmq_storage_class | default('longhorn') }}
+  volume_size: {{ k8s_plugin_plane_rabbitmq_volume_size | default('5Gi') }}
+  default_user: {{ k8s_plugin_plane_rabbitmq_default_user | default('admin') }}
+
+minio:
+  local_setup: {{ k8s_plugin_plane_minio_local_setup | default(true) }}
+  storage_class: {{ k8s_plugin_plane_minio_storage_class | default('longhorn') }}
+  volume_size: {{ k8s_plugin_plane_minio_volume_size | default('20Gi') }}
+  root_user: {{ k8s_plugin_plane_minio_root_user | default('admin') }}
+
+external_secrets:
+  rabbitmq_existing_secret: {{ k8s_plugin_plane_secrets | default('plane-secrets') }}
+  pgdb_existing_secret: {{ k8s_plugin_plane_secrets | default('plane-secrets') }}
+  doc_store_existing_secret: {{ k8s_plugin_plane_secrets | default('plane-secrets') }}
+  app_env_existing_secret: {{ k8s_plugin_plane_secrets | default('plane-secrets') }}
+  live_env_existing_secret: {{ k8s_plugin_plane_secrets | default('plane-secrets') }}
+
+web:
+  service:
+    type: {{ k8s_plugin_plane_web_service_type | default('ClusterIP') }}

@@ -1,4 +1,5 @@
 ---
+# roles/iscsi/tasks/main.yml
 - name: Ensure required facts are available
   ansible.builtin.setup:
   when: ansible_facts is not defined or ansible_facts.get('os_family', '') == ''

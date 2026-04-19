@@ -1,8 +1,4 @@
 ---
-- name: Setup helm to install plugins
-  ansible.builtin.include_role:
-    name: helm
-
 - name: Install CNI plugin
   include_role:
     name: plugin

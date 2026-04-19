@@ -1,0 +1,50 @@
+---
+# roles/plugin/tasks/devops-plane.yml
+
+- name: "Extract plane configuration"
+  ansible.builtin.set_fact:
+    _plane_config: "{{ k8s_plugins['devops-plane'] }}"
+  when: k8s_plugins['devops-plane'] is defined
+
+- name: "Generate random passwords for plane-secrets"
+  ansible.builtin.set_fact:
+    _plane_rabbitmq_password: "{{ lookup('password', '/dev/null length=32 chars=ascii_letters,digits') }}"
+    _plane_pgdb_password: "{{ lookup('password', '/dev/null length=32 chars=ascii_letters,digits') }}"
+    _plane_minio_root_password: "{{ lookup('password', '/dev/null length=32 chars=ascii_letters,digits') }}"
+    _plane_secret_key: "{{ lookup('password', '/dev/null length=64 chars=ascii_letters,digits') }}"
+    _plane_live_secret_key: "{{ lookup('password', '/dev/null length=64 chars=ascii_letters,digits') }}"
+  no_log: true
+  when: _plane_config is defined
+
+- name: "Create namespace {{ _plane_config.namespace }}"
+  ansible.builtin.shell: |
+    kubectl create namespace {{ _plane_config.namespace }} --dry-run=client -o yaml | kubectl apply -f -
+  changed_when: false
+  when: _plane_config is defined
+
+- name: "Check if secrets already exists in {{ _plane_config.namespace }}"
+  ansible.builtin.command: kubectl get secret {{ k8s_plugin_plane_secrets | default('plane-secrets') }} -n {{ _plane_config.namespace }} --ignore-not-found
+  register: _plane_secret_check
+  changed_when: false
+  failed_when: false
+  when: _plane_config is defined
+
+- name: "Create secret with random passwords" # kubectl get secret plane-secrets -n plane-system -o json | jq -r '.data | map_values(@base64d)'
+  ansible.builtin.shell: |
+    kubectl create secret generic {{ k8s_plugin_plane_secrets | default('plane-secrets') }} \
+      --namespace {{ _plane_config.namespace }} \
+      --from-literal=rabbitmq-password='{{ _plane_rabbitmq_password }}' \
+      --from-literal=pgdb-password='{{ _plane_pgdb_password }}' \
+      --from-literal=minio-root-password='{{ _plane_minio_root_password }}' \
+      --from-literal=secret-key='{{ _plane_secret_key }}' \
+      --from-literal=live-secret-key='{{ _plane_live_secret_key }}' \
+      --dry-run=client -o yaml | kubectl apply -f -
+  when: _plane_config is defined and _plane_secret_check.stdout == ""
+  no_log: true
+
+- name: "Install DevOps plane"
+  include_tasks: _install_plugin.yml
+  vars:
+    plugin_name: devops-plane
+    plugin_config: "{{ k8s_plugins[plugin_name] }}"
+  tags: plugin-devops-plane

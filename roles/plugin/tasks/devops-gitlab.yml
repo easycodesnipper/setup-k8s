@@ -1,7 +1,11 @@
 ---
+# roles/plugin/tasks/devops-gitlab.yml
+
 - name: "Install DevOps gitlab"
   include_tasks: _install_plugin.yml
   vars:
     plugin_name: devops-gitlab
     plugin_config: "{{ k8s_plugins[plugin_name] }}"
   tags: plugin-devops-gitlab
+
+  

@@ -1,0 +1,17 @@
+[Unit]
+Description=SSH Tunnel to K8s LoadBalancer IPs
+After=network.target
+
+[Service]
+# User must be root for ports 80/443
+User={{ service_user | default('root')}}
+Group=root
+Type=simple
+ExecStart=/usr/local/bin/ingress-ssh-tunnel.sh
+Restart=always
+RestartSec=10
+# Optional: Ensure the process can bind to low ports even if User wasn't root
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+[Install]
+WantedBy=multi-user.target

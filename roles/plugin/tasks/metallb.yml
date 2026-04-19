@@ -1,5 +1,7 @@
 ---
-- name: "Install MetalLB"
+# roles/plugin/tasks/metallb.yml
+
+- name: Install MetalLB
   include_tasks: _install_plugin.yml
   vars:
     plugin_name: metallb

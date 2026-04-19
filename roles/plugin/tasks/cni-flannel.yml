@@ -1,5 +1,7 @@
 ---
-- name: "Install CNI Flannel"
+# roles/plugin/tasks/cni-flannel.yml
+
+- name: Install CNI Flannel
   include_tasks: _install_plugin.yml
   vars:
     plugin_name: cni-flannel

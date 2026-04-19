@@ -1,19 +1,10 @@
 ---
-- name: Check if Containerd is already installed
-  ansible.builtin.shell: |
-    if command -v containerd >/dev/null 2>&1; then
-      containerd --version
-      exit 0
-    else
-      echo "Containerd not installed on {{ inventory_hostname }}"
-      exit 1
-    fi
-  register: containerd_version_check
-  changed_when: false
-  failed_when: false
 
-- name: Install containerd if not present
-  when: containerd_version_check.rc != 0
+- name: Install containerd if not running or not configured
+  when: >
+    (ansible_facts.get('services', {}).get('containerd', {}).get('state') != 'running')
+    or 
+    (lookup('ansible.builtin.file', '/etc/containerd/config.toml', errors='ignore') | length == 0)
   block:
     - name: Gather facts
       ansible.builtin.setup:
@@ -25,7 +16,7 @@
         state: present
         update_cache: true
 
-    - name: Setup Docker's repository
+    - name: Setup Docker repository
       ansible.builtin.include_tasks:
         file: setup-repo-{{ ansible_facts["os_family"] | lower }}.yml
 
