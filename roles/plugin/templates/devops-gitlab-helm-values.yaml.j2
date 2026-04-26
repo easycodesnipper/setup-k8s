@@ -1,6 +1,8 @@
 ---
 # roles/devops/templates/devops-gitlab-values.yaml.j2
 
+{# ansible localhost -m template -a "src=roles/plugin/templates/devops-gitlab-helm-values.yaml.j2 dest=/tmp/devops-gitlab-values.yaml" #}
+
 {%- set tls_enabled = k8s_plugin_gitlab_global_ingress_tls_enabled | default(true) | bool %}
 
 upgradeCheck:
@@ -31,6 +33,27 @@ global:
       traefik.ingress.kubernetes.io/router.middlewares: "{{ k8s_plugin_traefik_namespace | default('traefik-system') }}-{{ k8s_plugin_traefik_middleware | default('redirect-https') }}@kubernetescrd"
 {% endif %}
 
+  # Parameterized SMTP configuration
+  smtp:
+    enabled: {{ k8s_plugin_gitlab_smtp_enabled | default(true) }}
+    address: "{{ k8s_plugin_gitlab_smtp_address | default('smtp.mxhichina.com') }}"
+    port: {{ k8s_plugin_gitlab_smtp_port | default(465) }}
+    user_name: "{{ k8s_plugin_gitlab_smtp_user_name | default('cdeyin@sbkswyy.cn') }}"
+    password:
+      secret: "{{ k8s_plugin_gitlab_smtp_password_secret | default('gitlab-smtp-password') }}"
+      key: "{{ k8s_plugin_gitlab_smtp_password_key | default('password') }}"
+    domain: "{{ k8s_plugin_gitlab_smtp_domain | default('smtp.mxhichina.com') }}"
+    authentication: "{{ k8s_plugin_gitlab_smtp_authentication | default('login') }}"
+    starttls_auto: {{ k8s_plugin_gitlab_smtp_starttls_auto | default(false) }}
+    tls: {{ k8s_plugin_gitlab_smtp_tls | default(true) }}
+  
+  # Parameterized Email headers
+  email:
+    from: "{{ k8s_plugin_gitlab_email_from | default('cdeyin@sbkswyy.cn') }}"
+    display_name: "{{ k8s_plugin_gitlab_email_display_name | default('SBK-GitLab') }}"
+    reply_to: "{{ k8s_plugin_gitlab_email_reply_to | default('cdeyin@sbkswyy.cn') }}"
+    subject_suffix: "{{ k8s_plugin_gitlab_email_subject_suffix | default('[SBK-GITLAB]') }}"
+
 postgresql:
   enabled: {{ k8s_plugin_gitlab_postgresql_enabled | default(true) }}
   persistence:
@@ -60,7 +83,7 @@ gitlab:
 
 gitlab-shell:
   traefik:
-    entrypoint: {{ k8s_plugin_gitlab_gitlab_shell_traefik_entrypoint | default('gitlab-shell') }}
+    entrypoint: {{ k8s_plugin_traefik_ports_gitlab_shell | default('gitlab-shell') }}
 
 registry:
   enabled: false
@@ -75,5 +98,18 @@ prometheus:
   install: false
 
 gitlab-runner:
-  gitlabUrl: {{ k8s_plugin_gitlab_runner_gitlab_url | default('http://gitlab-webservice-default.gitlab-system.svc.cluster.local/') }}
+  # 1. Control installation via the k8s_plugin_gitlab_runner_install variable
+  install: {{ k8s_plugin_gitlab_runner_install | default(false) | bool }}
+
+  # 2. Corrected the missing closing brace and ensured valid internal URL
+  gitlabUrl: {{ k8s_plugin_gitlab_runner_gitlab_url | default('http://gitlab-webservice-default.' + (k8s_plugin_gitlab_namespace | default('gitlab-system')) + '.svc.cluster.local:8181/') }}
+
+  # 3. New field for the Authentication Token (glrt-...)
+  runnerToken: "{{ k8s_plugin_gitlab_runner_token_value | default('') }}"
+
+  # 4. Global concurrency for the runner pods
   concurrent: {{ k8s_plugin_gitlab_runner_concurrent | default(10) }}
+
+  # 5. RBAC settings for the runner executor
+  rbac:
+    create: {{ k8s_plugin_gitlab_runner_rbac_create | default(true) | bool }}

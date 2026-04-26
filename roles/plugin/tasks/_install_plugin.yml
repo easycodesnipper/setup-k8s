@@ -1,12 +1,39 @@
 # roles/plugin/tasks/_install_plugin.yml
 ---
+
+- name: "Plugin {{ plugin_name }} | Check if dependencies met"
+  include_tasks: check-deps.yml
+  vars:
+    _plugin_name: "{{ plugin_name }}"
+    _plugin_config: "{{ plugin_config }}"
+
+- name: "Plugin {{ plugin_name }} | Copy TLS secret from CA Server and Verify"
+  block:
+    - name: Copy TLS secret from CA Server
+      include_tasks: copy_tls_secret.yml
+      vars:
+        target_namespace: "{{ plugin_config.namespace }}"
+        source_secret_name: "{{ plugin_config.ingress.tls.secret_name | default('mkcert-wildcard-tls') }}"
+        target_secret_name: "{{ source_secret_name | default('mkcert-wildcard-tls') }}"
+
+    - name: Verify TLS secret certificate is signed by root CA
+      include_tasks: verify_tls_secret.yml
+      vars:
+        tls_secret_name: "{{ plugin_config.ingress.tls.secret_name | default('mkcert-wildcard-tls') }}"
+        tls_secret_namespace: "{{ plugin_config.namespace }}"
+  when:
+    - plugin_config.namespace | default('default') != 'traefik-system'
+    - plugin_config.ingress is defined
+    - plugin_config.ingress.tls is defined
+    - plugin_config.ingress.tls.enabled | default(true) | bool
+
 - name: "Plugin {{ plugin_name }} | Install via Manifest"
   block:
-    - name: "Set local manifest path"
+    - name: "Plugin {{ plugin_name }} | Set local manifest path"
       ansible.builtin.set_fact:
-        local_manifest_path: "/tmp/plugin_{{ plugin_name }}-manifest.yaml"
+        local_manifest_path: "/tmp/{{ plugin_name }}-manifest.yaml"
 
-    - name: "Download manifest if not exists"
+    - name: "Plugin {{ plugin_name }} | Download manifest if not exists"
       ansible.builtin.shell: |
         set -o pipefail
         curl -fsSL {{ plugin_config['manifest'] }} -o {{ local_manifest_path }}
@@ -18,7 +45,7 @@
       retries: 5
       delay: 15
 
-    - name: "Apply via local manifest"
+    - name: "Plugin {{ plugin_name }} | Apply via local manifest"
       ansible.builtin.command:
         cmd: "kubectl apply -f {{ local_manifest_path }}"
       changed_when: true
@@ -34,7 +61,7 @@
         name: helm
       run_once: true
   
-    - name: Check if Helm repository already exists
+    - name: "Plugin {{ plugin_name }} |  Check if Helm repository already exists"
       ansible.builtin.command: >
         helm repo list --output yaml
       register: helm_repo_list
@@ -44,7 +71,7 @@
         - plugin_config['helm']['repository'] is defined
         - plugin_config['helm']['repository'] is mapping
 
-    - name: Add Helm repository and update if not present
+    - name: "Plugin {{ plugin_name }} | Add Helm repository and update if not present"
       block:
         - name: Add Helm repository only if missing
           ansible.builtin.command: >
@@ -58,7 +85,7 @@
             - plugin_config['helm']['repository'] is defined
             - plugin_config['helm']['repository'] is mapping
 
-        - name: Update Helm repository index
+        - name: "Plugin {{ plugin_name }} | Update Helm repository index"
           ansible.builtin.command: >
             helm repo update {{ plugin_config.helm.repository.name }}
           register: helm_repo_update
@@ -71,7 +98,7 @@
             - plugin_config['helm']['repository'] is mapping
       when: (helm_repo_list.stdout | from_yaml | selectattr('name', 'equalto', plugin_config.helm.repository.name) | list | length) == 0
 
-    - name: "Write Helm default values to temp file"
+    - name: "Plugin {{ plugin_name }} | Write Helm default values to temp file"
       ansible.builtin.copy:
         content: "{{ plugin_config['helm']['values'] | deep_convert | to_nice_yaml(indent=2) }}"
         dest: "/tmp/{{ plugin_name }}-helm-values.yaml"
@@ -80,7 +107,7 @@
         - plugin_config['helm']['values'] is defined
         - plugin_config['helm']['values'] is mapping
 
-    - name: "Render Helm j2 template file values to temp file"
+    - name: "Plugin {{ plugin_name }} | Render Helm j2 template file values to temp file"
       ansible.builtin.template:
         src: "{{ plugin_name }}-helm-values.yaml.j2"
         dest: "/tmp/{{ plugin_name }}-helm-values.yaml"
@@ -89,22 +116,22 @@
         (plugin_config['helm']['values'] is not defined)
         or (plugin_config['helm']['values'] is not mapping)
 
-    - name: Ensure local chart directory exists
+    - name: "Plugin {{ plugin_name }} | Ensure local chart directory exists"
       ansible.builtin.file:
         path: "/tmp/{{ plugin_name }}-helm-chart"
         state: directory
         mode: '0755'
 
-    - name: Set expected chart file path
+    - name: "Plugin {{ plugin_name }} | Set expected chart file path"
       ansible.builtin.set_fact:
         _chart_file_path: "/tmp/{{ plugin_name }}-helm-chart/{{ plugin_config.helm.chart | split('/') | last }}-{{ plugin_config.helm.version }}.tgz"
 
-    - name: Check if chart archive already exists
+    - name: "Plugin {{ plugin_name }} | Check if chart archive already exists"
       ansible.builtin.stat:
         path: "{{ _chart_file_path }}"
       register: _chart_stat
 
-    - name: Pull Helm chart to local directory (only if missing)
+    - name: "Plugin {{ plugin_name }} | Pull Helm chart to local directory (only if missing)"
       when: not _chart_stat.stat.exists
       ansible.builtin.shell: |
         set -o pipefail
@@ -115,16 +142,16 @@
         executable: /bin/bash
       register: pull_result
       until: pull_result is success
-      retries: 5
+      retries: 30
       delay: 10
       changed_when: true
 
-    - name: Fail if chart file still missing (e.g., pull failed or wrong naming)
+    - name: "Plugin {{ plugin_name }} | Fail if chart file still missing (e.g., pull failed or wrong naming)"
       ansible.builtin.fail:
         msg: "Helm chart not found at {{ _chart_file_path }}"
       when: not _chart_stat.stat.exists and (pull_result is skipped or pull_result.failed)
 
-    - name: Install/Upgrade Helm release with local chart
+    - name: "Plugin {{ plugin_name }} | Install/Upgrade Helm release with local chart"
       vars:
         _values_file: "/tmp/{{ plugin_name }}-helm-values.yaml"
       ansible.builtin.shell: |
@@ -187,7 +214,7 @@
       {{ plugin_config.wait.labels | join(',') if plugin_config.wait.labels is sequence
          else plugin_config.wait.labels }}
   ansible.builtin.command: >
-    kubectl wait --for=condition=Ready {{ plugin_config.wait.resource | default('pod') }}
+    kubectl wait --for={{ plugin_config.wait.condition | default('condition=Ready') }} {{ plugin_config.wait.resource | default('pod') }}
     -n {{ plugin_config.namespace | default('kube-system') }}
     --selector="{{ _selector }}"
     --timeout={{ plugin_config.wait.timeout | default('5m') }}
@@ -210,6 +237,14 @@
     - plugin_config['configuration'] is mapping
     - plugin_config['configuration']['data'] is defined
   changed_when: true
+  register: apply_result
+  until: apply_result.rc == 0
   retries: 5
-  delay: 15
+  delay: 30
   tags: plugin-post-config
+
+- name: "Plugin {{ plugin_name }} | Setup Ingress domain mapping in /etc/hosts"
+  include_tasks: ingress-domain-mapping.yml
+  when: 
+    - plugin_config.ingress is defined
+    - plugin_config.ingress.enabled | default(true) | bool

@@ -1,0 +1,6 @@
+---
+# roles/plugin/tasks/longhorn-iscsi.yml
+
+- name: Install iSCSI on {{ node_item }}
+  include_role:
+    name: iscsi

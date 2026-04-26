@@ -1,14 +1,14 @@
 ---
 # roles/devops/templates/ca-server-manifest.yaml.j2
 
-{# Test rendered result: ansible localhost -m template -a "src=roles/plugin/templates/ca-server-manifest.yaml.j2 dest=/tmp/ca-server.yaml" #}
+{# ansible localhost -m template -a "src=roles/plugin/templates/ca-server-manifest.yaml.j2 dest=/tmp/ca-server.yaml" #}
 
 # Deployment: Runs a lightweight Nginx to serve the rootCA.pem file
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ca-server
-  namespace: {{ k8s_plugin_traefik_namespace | default('traefik-system') }}
+  namespace: {{ k8s_plugin_ca_namespace | default('ca-system') }}
 spec:
   replicas: 1
   selector:
@@ -43,7 +43,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: ca-server
-  namespace: {{ k8s_plugin_traefik_namespace | default('traefik-system') }}
+  namespace: {{ k8s_plugin_ca_namespace | default('ca-system') }}
 spec:
   type: ClusterIP
   ports:
@@ -51,3 +51,26 @@ spec:
       targetPort: 80
   selector:
     app: ca-server
+---
+# Ingress: Expose ca-server via Traefik (HTTP only)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ca-server
+  namespace: {{ k8s_plugin_ca_namespace | default('ca-system') }}
+  annotations:
+    # Optional: force HTTP only (disable automatic HTTPS redirect if enabled globally)
+    traefik.ingress.kubernetes.io/redirect-entry-point: ""
+spec:
+  ingressClassName: {{ k8s_plugin_ca_ingress_class | default('traefik') }} 
+  rules:
+    - host: {{ k8s_plugin_ca_host | default('ca.localdomain') }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ca-server
+                port:
+                  number: 80

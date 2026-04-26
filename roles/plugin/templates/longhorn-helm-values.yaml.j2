@@ -6,7 +6,7 @@
 {%- set tls_enabled = k8s_plugin_longhorn_ingress_tls_enabled | default(true) | bool %}
 
 persistence:
-  defaultClassReplicaCount: {{ k8s_plugin_longhorn_default_class_replica_count | default(2) | int }}
+  defaultClassReplicaCount: {{ k8s_plugin_longhorn_default_class_replica_count | default(1) | int }}
 
 defaultSettings:
   defaultDataPath: "{{ k8s_plugin_longhorn_data_path | default('/var/lib/longhorn') }}"

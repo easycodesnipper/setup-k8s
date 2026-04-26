@@ -38,9 +38,9 @@
   set_fact:
     _plugins_to_install: "{{ _filtered_plugins if (_as_list | length > 0) else _enabled_plugins }}"
 
-# - name: Debug plugins to install
-#   debug:
-#     msg: "Plugins to install: {{ _plugins_to_install | map(attribute='key') | list }}"
+- name: Show plugins to be installed
+  debug:
+    msg: "Plugins to install: {{ _plugins_to_install | map(attribute='key') | list }}"
 
 - name: Fail if no plugins are defined for installation
   fail:

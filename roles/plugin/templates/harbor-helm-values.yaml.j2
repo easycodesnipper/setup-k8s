@@ -1,0 +1,68 @@
+# roles/plugin/templates/harbor-helm-values.yaml.j2
+
+{%- set harbor_host = k8s_plugin_harbor_ingress_host | default('harbor.localdomain') -%}
+{%- set tls_enabled = k8s_plugin_harbor_ingress_tls_enabled | default(true) | bool -%}
+{%- set storage_class_rwo = k8s_plugin_harbor_storage_class | default('longhorn') -%}
+{%- set storage_class_rwx = k8s_plugin_harbor_storage_class_rwx | default('longhorn-rwx') -%}
+{%- set trivy_enabled = k8s_plugin_harbor_trivy_enabled | default(true) | bool -%}
+
+# Ingress and TLS configuration
+expose:
+  type: ingress
+  tls:
+    enabled: {{ tls_enabled | lower }}
+    certSource: secret
+    secret:
+      secretName: "{{ k8s_plugin_harbor_ingress_tls_secret_name | default('mkcert-wildcard-tls') }}"
+  ingress:
+    hosts:
+      core: {{ harbor_host }}
+    className: {{ k8s_plugin_harbor_ingress_class_name | default('traefik') }}
+    annotations:
+      traefik.ingress.kubernetes.io/router.entrypoints: "{{ 'web, websecure' if tls_enabled else 'web' }}"
+{% if tls_enabled %}
+      traefik.ingress.kubernetes.io/router.middlewares: "{{ k8s_plugin_traefik_namespace | default('traefik-system') }}-{{ k8s_plugin_traefik_middleware | default('redirect-https') }}@kubernetescrd"
+{% endif %}
+
+# External URL
+externalURL: {{ 'https' if tls_enabled else 'http' }}://{{ harbor_host }}
+
+# Persistence settings
+persistence:
+  enabled: true
+  resourcePolicy: "keep"
+  persistentVolumeClaim:
+    registry:
+      storageClass: "{{ storage_class_rwx }}"
+      accessMode: ReadWriteMany
+      size: {{ k8s_plugin_harbor_registry_size | default('50Gi') }}
+    jobservice:
+      storageClass: "{{ storage_class_rwx }}"
+      accessMode: ReadWriteMany
+      size: {{ k8s_plugin_harbor_jobservice_size | default('1Gi') }}
+    database:
+      storageClass: "{{ storage_class_rwo }}"
+      accessMode: ReadWriteOnce
+      size: {{ k8s_plugin_harbor_database_size | default('5Gi') }}
+    redis:
+      storageClass: "{{ storage_class_rwo }}"
+      accessMode: ReadWriteOnce
+      size: {{ k8s_plugin_harbor_redis_size | default('2Gi') }}
+{% if trivy_enabled %}
+    trivy:
+      storageClass: "{{ storage_class_rwo }}"
+      accessMode: ReadWriteOnce
+      size: {{ k8s_plugin_harbor_trivy_size | default('5Gi') }}
+{% endif %}
+
+# Admin Password
+existingSecretAdminPassword: "harbor-admin-password"
+
+# Trivy Configuration
+trivy:
+  enabled: {{ trivy_enabled | lower }}
+{% if trivy_enabled %}
+  skipUpdate: {{ k8s_plugin_harbor_trivy_skip_update | default(false) | lower }}
+{% endif %}
+
+logLevel: {{ k8s_plugin_harbor_log_level | default('info') }}

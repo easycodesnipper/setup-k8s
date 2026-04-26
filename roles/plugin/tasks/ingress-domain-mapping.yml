@@ -1,0 +1,45 @@
+---
+# roles/plugin/tasks/ingress-domain-mapping.yml
+
+- name: "Fetch Ingress Mappings"
+  ansible.builtin.command: >-
+    kubectl get ingress -A
+    -o jsonpath='{range .items[?(@.spec.ingressClassName=="'{{ k8s_ingress_class | default("traefik") }}'")]}{.status.loadBalancer.ingress[0].ip}{" "}{range .spec.rules[*]}{.host}{" "}{end}{"\n"}{end}'
+  register: _traefik_raw
+  run_once: true
+  changed_when: false
+
+- name: "Calculate Mappings as YAML"
+  ansible.builtin.set_fact:
+    _ingress_mappings_yaml: |-
+      {% set allowed_ips = k8s_plugin_ingress_loadbalancer_ips | default(['10.17.3.222']) %}
+      {% set entries = [] %}
+      {% for line in _traefik_raw.stdout_lines if line.strip() %}
+        {% set parts = line.split() %}
+        {% if parts | length > 1 and parts[0] in allowed_ips %}
+          {% for host in parts[1:] %}
+            {% set _ = entries.append(parts[0] ~ " " ~ host) %}
+          {% endfor %}
+        {% endif %}
+      {% endfor %}
+      {{ entries | unique | to_yaml }}
+  run_once: true
+
+- name: "Convert YAML string to list"
+  ansible.builtin.set_fact:
+    _ingress_mappings: "{{ _ingress_mappings_yaml | from_yaml }}"
+  run_once: true
+
+- name: "Networking | Map Ingress VIPs to /etc/hosts"
+  become: true
+  ansible.builtin.blockinfile:
+    path: /etc/hosts
+    marker: "# {mark} ANSIBLE MANAGED INGRESS DOMAINS"
+    block: "{{ _ingress_mappings | join('\n') | trim }}"
+    state: "{{ 'present' if (_ingress_mappings | length > 0) else 'absent' }}"
+  delegate_to: "{{ node_item }}"
+  loop: "{{ groups['k8s_cluster'] + ['localhost'] }}"
+  loop_control:
+    loop_var: node_item
+    label: "Mapping on {{ node_item }}"
+

@@ -20,3 +20,6 @@ Thumbs.db
 lint_output.txt
 lint_detailed.txt
 lint_output_verify.txt
+
+# Vault
+.vault_pass

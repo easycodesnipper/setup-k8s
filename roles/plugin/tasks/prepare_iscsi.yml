@@ -1,6 +1,0 @@
----
-# roles/plugin/tasks/prepare_iscsi.yml
-
-- name: Include iscsi role
-  include_role:
-    name: iscsi

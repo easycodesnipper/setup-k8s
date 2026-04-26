@@ -1,0 +1,13 @@
+
+---
+# roles/plugin/tasks/harbor-containerd-registry-mirror.yml
+
+- name: "Delegation Block for {{ node_item }}"
+  delegate_to: "{{ node_item }}"
+  block:
+    - name: "Containerd | Apply Harbor as Containerd Registry Mirror"
+      include_role:
+        name: containerd
+        tasks_from: configure-registry-mirror
+      vars:
+        containerd_registry_mirrors: "{{ final_mirrors_json | from_json }}"

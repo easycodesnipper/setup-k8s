@@ -1,37 +1,18 @@
 ---
+# roles/containerd/tasks/main.yml
 
-- name: Install containerd if not running or not configured
-  when: >
-    (ansible_facts.get('services', {}).get('containerd', {}).get('state') != 'running')
-    or 
-    (lookup('ansible.builtin.file', '/etc/containerd/config.toml', errors='ignore') | length == 0)
-  block:
-    - name: Gather facts
-      ansible.builtin.setup:
-      when: ansible_facts["os_family"] is not defined
-
-    - name: Install required packages
-      ansible.builtin.package:
-        name: "{{ containerd_required_packages[ansible_facts['os_family']] }}"
-        state: present
-        update_cache: true
-
-    - name: Setup Docker repository
-      ansible.builtin.include_tasks:
-        file: setup-repo-{{ ansible_facts["os_family"] | lower }}.yml
-
-    - name: Install containerd
-      ansible.builtin.package:
-        name: containerd.io
-        state: present
-      retries: 5
-      delay: 15
-      register: result
-      until: result is succeeded
+- name: Install containerd
+  ansible.builtin.include_tasks:
+    file: install.yml
 
 - name: Configure containerd
   ansible.builtin.include_tasks:
     file: configure.yml
+
+- name: Cconfigure registry mirror(s)
+  ansible.builtin.include_tasks:
+    file: configure-registry-mirror.yml
+  when: containerd_registry_mirror_enabled | default(false) | bool
 
 - name: Ensure containerd is running and enabled
   ansible.builtin.systemd:

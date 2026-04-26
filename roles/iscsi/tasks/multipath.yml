@@ -1,0 +1,41 @@
+---
+# roles/iscsi/tasks/multipath.yml
+
+- name: Set OS-specific service and package names
+  ansible.builtin.set_fact:
+    multipath_package: "{{ 'multipath-tools' if ansible_facts['os_family'] == 'Debian' else 'device-mapper-multipath' }}"
+    multipath_service: "{{ 'multipath-tools' if ansible_facts['os_family'] == 'Debian' else 'multipathd' }}"
+
+- name: Ensure multipath packages are installed
+  ansible.builtin.package:
+    name: "{{ multipath_package }}"
+    state: present
+
+- name: Configure multipathd blacklist for Longhorn
+  ansible.builtin.blockinfile:
+    path: /etc/multipath.conf
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+    marker: "# {mark} ANSIBLE MANAGED: Longhorn iSCSI Blacklist"
+    block: |
+      blacklist {
+          device {
+              vendor  "IET"
+              product "VIRTUAL-DISK"
+          }
+      }
+  register: multipath_config
+
+- name: Ensure multipathd service is enabled and started
+  ansible.builtin.service:
+    name: "{{ multipath_service }}"
+    state: started
+    enabled: true
+
+- name: Reload multipathd if configuration changed
+  ansible.builtin.service:
+    name: "{{ multipath_service }}"
+    state: reloaded
+  when: multipath_config.changed

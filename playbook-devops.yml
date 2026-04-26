@@ -6,5 +6,6 @@
   vars:
     k8s_plugins_only: 
       - devops-gitlab
+      - devops-openproject
   roles:
     - role: plugin

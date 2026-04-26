@@ -1,0 +1,55 @@
+---
+# roles/plugin/tasks/harbor-setup-proxy.yml
+
+- name: "Harbor init proxy"
+  delegate_to: localhost
+  block:
+    - name: "Harbor API | Localize password fact"
+      ansible.builtin.set_fact:
+        _api_password: "{{ hostvars[groups['controllers'][0]]['_final_admin_password'] | trim }}"
+
+    - name: "Harbor API | Create Registry Endpoint for {{ mirror_item.name }}"
+      ansible.builtin.uri:
+        url: "https://{{ k8s_plugin_harbor_ingress_host | default('harbor.localdomain') }}/api/v2.0/registries"
+        method: POST
+        user: "admin"
+        password: "{{ _api_password }}"
+        force_basic_auth: yes
+        body_format: json
+        validate_certs: no
+        body:
+          name: "{{ mirror_item.name }}"
+          url: "{{ mirror_item.url }}"
+          type: "{{ mirror_item.type }}"
+          insecure: false
+        status_code: [201, 409]
+
+    - name: "Harbor API | Get Endpoint ID for {{ mirror_item.name }}"
+      ansible.builtin.uri:
+        url: "https://{{ k8s_plugin_harbor_ingress_host | default('harbor.localdomain') }}/api/v2.0/registries?name={{ mirror_item.name }}"
+        method: GET
+        user: "admin"
+        password: "{{ _api_password }}"
+        force_basic_auth: yes
+        validate_certs: no
+      register: _endpoint_query
+
+    - name: "Harbor API | Create Project: {{ mirror_item.name }}"
+      ansible.builtin.uri:
+        url: "https://{{ k8s_plugin_harbor_ingress_host | default('harbor.localdomain') }}/api/v2.0/projects"
+        method: POST
+        user: "admin"
+        password: "{{ _api_password }}"
+        force_basic_auth: yes
+        body_format: json
+        validate_certs: no
+        body: |
+          {
+            "project_name": "{{ mirror_item.name }}",
+            "public": true,
+            "registry_id": {{ _endpoint_query.json[0].id | int }},
+            "metadata": {
+              "proxy_cache": "true"
+            }
+          }
+        status_code: [201, 409]

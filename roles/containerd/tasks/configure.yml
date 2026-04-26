@@ -1,12 +1,24 @@
 ---
-- name: Ensure containerd configuration directory
-  ansible.builtin.file:
-    path: /etc/containerd
-    state: directory
-    mode: "0755"
+# roles/containerd/tasks/configure.yml
+
+- name: "Containerd | Check configuration state"
+  ansible.builtin.lineinfile:
+    path: "{{ containerd_config_file }}"
+    line: "SystemdCgroup = true"
+    state: present
+  check_mode: yes
+  register: cgroup_check
+  failed_when: false
 
 - name: Generate default containerd config if missing or SystemdCgroup not true
+  become: true
   block:
+    - name: Ensure containerd configuration directory
+      ansible.builtin.file:
+        path: /etc/containerd
+        state: directory
+        mode: "0755"
+
     - name: Generate current default containerd configuration
       ansible.builtin.shell:
         cmd: containerd config default
@@ -17,55 +29,18 @@
     - name: Write default config (backup existing if present)
       ansible.builtin.copy:
         content: "{{ containerd_default_config.stdout }}\n"
-        dest: /etc/containerd/config.toml
+        dest: "{{ containerd_config_file }}"
         backup: true
       notify: Restart containerd
 
     - name: Ensure SystemdCgroup is set to true (preserve indentation, uncomment if needed)
       ansible.builtin.lineinfile:
-        path: /etc/containerd/config.toml
+        path: "{{ containerd_config_file }}"
         regexp: '^( *)?#?\s*(SystemdCgroup = ).*'
         line: '\1\2true'
         backrefs: true
       notify: Restart containerd
   when: >
-    (ansible_facts.get('services', {}).get('containerd', {}).get('state') == 'running')
-    or not (lookup('ansible.builtin.file', '/etc/containerd/config.toml', errors='ignore') | length > 0
-            and ('SystemdCgroup = true' in lookup('ansible.builtin.file', '/etc/containerd/config.toml')))
-
-- name: Configure registry mirrors if enabled
-  block:
-    - name: Ensure containerd certs directory exists
-      ansible.builtin.file:
-        path: "{{ containerd_registry_mirror_config_path }}"
-        state: directory
-        mode: '0755'
-
-    - name: Ensure registry-specific directories exist
-      ansible.builtin.file:
-        path: "{{ containerd_registry_mirror_config_path }}/{{ item.key }}"
-        state: directory
-        mode: '0755'
-      loop: "{{ containerd_registry_mirrors | dict2items }}"
-
-    - name: Generate hosts.toml for each registry mirror
-      ansible.builtin.template:
-        src: hosts.toml.j2
-        dest: "{{ containerd_registry_mirror_config_path }}/{{ item.key }}/hosts.toml"
-        mode: '0644'
-      loop: "{{ containerd_registry_mirrors | dict2items }}"
-      notify: Restart containerd
-
-    - name: Remove existing config_path lines (to avoid conflicts)
-      ansible.builtin.lineinfile:
-        path: /etc/containerd/config.toml
-        regexp: '^[[:space:]]*config_path = .*'
-        state: absent
-      notify: Restart containerd
-
-    - name: Set config_path under cri.images.registry
-      ansible.builtin.shell:
-        cmd: |
-          sed -i.bak "/^\s*\[plugins\.'io\.containerd\.cri\.v1\.images'\.registry\]/,/^\s*\[/ s/^\(\s*config_path\s*=\s*\).*/\1\"\/etc\/containerd\/certs.d\"/" /etc/containerd/config.toml
-      notify: Restart containerd
-  when: containerd_registry_mirror_enabled | default(false) | bool
+    (not cgroup_check.found | default(false)) 
+    or
+    cgroup_check.changed

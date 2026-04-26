@@ -1,0 +1,15 @@
+---
+# roles/plugin/tasks/check-deps.yml
+
+- name: "Plugin {{ _plugin_name }} | Check dependencies"
+  shell: |
+    for dep in {{ _plugin_config['depends_on'] | default([]) | map('quote') | join(' ') }}; do
+      if ! kubectl get ns "${dep}-system" --no-headers >/dev/null 2>&1; then
+        echo "!!! ERROR: The dependency $dep is not installed, please install it in advance !!!"
+        exit 1
+      fi
+    done
+  register: dep_check
+  failed_when: dep_check.rc != 0
+  changed_when: false
+  when: _plugin_config['depends_on'] is defined

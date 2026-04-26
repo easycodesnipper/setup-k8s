@@ -1,0 +1,46 @@
+---
+# roles/plugin/tasks/devops-openproject.yml
+
+- name: "Extract configuration"
+  ansible.builtin.set_fact:
+    _config: "{{ k8s_plugins['devops-openproject'] }}"
+  when: k8s_plugins['devops-openproject'] is defined
+
+- name: "Create namespace {{ _config.namespace }}"
+  ansible.builtin.shell: |
+    kubectl create namespace {{ _config.namespace }} --dry-run=client -o yaml | kubectl apply -f -
+  changed_when: false
+  when: _config is defined
+
+- name: "Check if OpenProject secrets already exist in {{ _config.namespace }}"
+  ansible.builtin.command: kubectl get secret {{ k8s_plugin_openproject_existing_secret | default('openproject-passwords') }} -n {{ _config.namespace }} --ignore-not-found
+  register: _openproject_secret_check
+  changed_when: false
+  failed_when: false
+  when: _config is defined
+
+- name: "Generate random passwords if secret does not exist"
+  ansible.builtin.set_fact:
+    _op_db_password: "{{ lookup('password', '/dev/null length=20 chars=ascii_letters,digits') }}"
+    _op_admin_password: "{{ lookup('password', '/dev/null length=16 chars=ascii_letters,digits') }}"
+  when: _config is defined and _openproject_secret_check.stdout == ""
+
+- name: "Create OpenProject passwords secret"
+  include_tasks: create-secret.yml
+  vars:
+    k8s_secret_name: "{{ k8s_plugin_openproject_existing_secret | default('openproject-passwords') }}"
+    k8s_secret_namespace: "{{ _config.namespace }}"
+    k8s_secret_data:
+      password: "{{ _op_db_password }}"
+      admin-password: "{{ _op_admin_password }}"
+  when: _config is defined and _openproject_secret_check.stdout == ""
+  tags:
+    - openproject-secret
+    - plugin-devops-openproject
+
+- name: "Install DevOps Openproject"
+  include_tasks: _install_plugin.yml
+  vars:
+    plugin_name: devops-openproject
+    plugin_config: "{{ k8s_plugins[plugin_name] }}"
+  tags: plugin-devops-openproject

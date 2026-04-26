@@ -1,14 +1,12 @@
 ---
 # roles/plugin/tasks/longhorn.yml
 
-- name: Prepare iSCSI on all workers
-  command: >
-    /usr/bin/ansible-playbook
-    -i {{ playbook_dir }}/inventory.ini
-    {{ playbook_dir }}/playbook-iscsi.yml
-  run_once: true
-  changed_when: false
-  delegate_to: localhost
+- name: Install iSCSI on all nodes
+  include_tasks: longhorn-iscsi.yml
+  loop: "{{ groups['k8s_cluster'] }}"
+  loop_control:
+    label: "Install iSCSI on {{ node_item }}"
+    loop_var: node_item
 
 - name: Install Longhorn
   include_tasks: _install_plugin.yml
@@ -16,3 +14,13 @@
     plugin_name: longhorn
     plugin_config: "{{ k8s_plugins[plugin_name] }}"
   tags: plugin-longhorn
+
+- name: Create Longhorn RWX StorageClass
+  ansible.builtin.shell: |
+    cat <<EOF | kubectl apply -f -
+    {{ lookup('template', 'longhorn-rwx-sc.yaml.j2') }}
+    EOF
+  args:
+    executable: /bin/bash
+  register: sc_output
+  changed_when: "'configured' in sc_output.stdout or 'created' in sc_output.stdout"

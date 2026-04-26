@@ -57,7 +57,7 @@ ports:
       default: true
     exposedPort: {{ k8s_plugin_traefik_ports_metrics_exposed_port | default(9100) }}
     protocol: TCP
-  gitlab-shell:
+  {{ k8s_plugin_traefik_ports_gitlab_shell | default('gitlab-shell') }}:
     port: {{ k8s_plugin_traefik_ports_gitlab_shell_port | default(22) }}
     expose:
       default: {{ k8s_plugin_traefik_ports_gitlab_shell_expose_default | default(true) }}

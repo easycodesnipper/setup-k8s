@@ -1,0 +1,46 @@
+---
+# roles/containerd/tasks/configure-registry-mirror.yml
+
+- name: Configure registry mirrors if enabled
+  become: true
+  block:
+    - name: Ensure containerd certs directory exists
+      ansible.builtin.file:
+        path: "{{ containerd_registry_mirror_config_path }}"
+        state: directory
+        mode: '0755'
+
+    - name: "Ensure registry-specific directories exist"
+      ansible.builtin.file:
+        path: "{{ containerd_registry_mirror_config_path }}/{{ mirror_item.key }}"
+        state: directory
+        mode: '0755'
+      loop: "{{ containerd_registry_mirrors | dict2items }}"
+      loop_control:
+        loop_var: mirror_item
+        label: "Creating directory for {{ mirror_item.key }}"
+
+    - name: "Generate hosts.toml for each registry mirror"
+      ansible.builtin.template:
+        src: hosts.toml.j2
+        dest: "{{ containerd_registry_mirror_config_path }}/{{ mirror_item.key }}/hosts.toml"
+        mode: '0644'
+      loop: "{{ containerd_registry_mirrors | dict2items }}"
+      loop_control:
+        loop_var: mirror_item
+        label: "Configuring mirror for {{ mirror_item.key }}"
+      notify: Restart containerd
+
+    - name: Remove existing config_path lines (to avoid conflicts)
+      ansible.builtin.lineinfile:
+        path: "{{ containerd_config_file }}"
+        regexp: '^[[:space:]]*config_path = .*'
+        state: absent
+      notify: Restart containerd
+
+    - name: Set config_path under cri.images.registry
+      ansible.builtin.shell:
+        cmd: |
+          sed -i.bak "/^\s*\[plugins\.'io\.containerd\.cri\.v1\.images'\.registry\]/,/^\s*\[/ s/^\(\s*config_path\s*=\s*\).*/\1\"\/etc\/containerd\/certs.d\"/" {{ containerd_config_file }}
+      notify: Restart containerd
+  tags: containerd-setup-registry-mirror
