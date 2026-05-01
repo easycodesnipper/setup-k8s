@@ -266,20 +266,22 @@ k8s_plugins:
 
 ################################### devops-gitlab ###################################
   # Description: Full DevOps platform providing Git repositories, CI/CD pipelines
-  # Show available version: helm search repo gitlab/gitlab --versions |head -n 4
-  # Show supported values: helm show values gitlab/gitlab --version 9.10.3 | sed -e '/^\s*#/d' -e '/^\s*$/d'
-  # Get initialize password: kubectl get secret -n gitlab-system gitlab-gitlab-initial-root-password -o jsonpath="{.data.password}" | base64 --decode && echo
+  # Show available version: helm search repo gitlab-jh/gitlab --versions |head -n 4
+  # Show supported values: helm show values gitlab-jh/gitlab --version 9.11.1 | sed -e '/^\s*#/d' -e '/^\s*$/d'
+  # Get password of `root` when logon in web:         kubectl get secret -n gitlab-system gitlab-gitlab-initial-root-password -o jsonpath="{.data.password}" | base64 --decode && echo
+  # Get password of DB user `gitlab` in postgresql:   kubectl get secret -n gitlab-system gitlab-postgresql-password -o jsonpath="{.data.postgresql-password}" | base64 -d && echo
+  # Get password of DB user `postgres` in postgresql: kubectl get secret -n gitlab-system gitlab-postgresql-password -o jsonpath="{.data.postgresql-postgres-password}" | base64 -d && echo
   devops-gitlab:
     enabled: "{{ k8s_plugin_gitlab_enabled | default(false) }}"
     depends_on: ['traefik','longhorn']
     namespace: "{{ k8s_plugin_gitlab_namespace | default('gitlab-system') }}"
     helm:
       repository:
-        name: "{{ k8s_plugin_gitlab_helm_repo_name | default('gitlab') }}"
-        url: "{{ k8s_plugin_gitlab_helm_repo_url | default('https://charts.gitlab.io') }}"
+        name: "{{ k8s_plugin_gitlab_helm_repo_name | default('gitlab-jh') }}"
+        url: "{{ k8s_plugin_gitlab_helm_repo_url | default('https://charts.gitlab.cn') }}"
       release: "{{ k8s_plugin_gitlab_helm_release | default('gitlab') }}"
-      chart: "{{ k8s_plugin_gitlab_helm_chart | default('gitlab/gitlab') }}"
-      version: "{{ k8s_plugin_gitlab_version | default('9.10.3') }}"
+      chart: "{{ k8s_plugin_gitlab_helm_chart | default('gitlab-jh/gitlab') }}"
+      version: "{{ k8s_plugin_gitlab_version | default('9.11.1') }}"
     wait:
       labels: "app=webservice"
     ingress:

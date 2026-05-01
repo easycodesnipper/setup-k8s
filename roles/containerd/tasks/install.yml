@@ -9,8 +9,6 @@
 - name: Install containerd if not running or not configured
   when: >
     not containerd_conf_stat.stat.exists
-    or 
-    (ansible_facts.get('services', {}).get('containerd', {}).get('state') != 'running')
   block:
     - name: Gather facts
       ansible.builtin.setup:
@@ -34,3 +32,7 @@
       delay: 15
       register: result
       until: result is succeeded
+
+    - name: Install crictl
+      ansible.builtin.include_tasks:
+        file: crictl.yml

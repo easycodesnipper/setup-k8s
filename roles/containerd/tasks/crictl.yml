@@ -1,0 +1,19 @@
+---
+# roles/containerd/tasks/crictl.yml
+
+- name: Install required packages
+  ansible.builtin.package:
+    name: "cri-tools"
+    state: present
+    update_cache: true
+
+- name: Configure crictl
+  ansible.builtin.copy:
+    content: |
+      runtime-endpoint: {{ containerd_socket | default('unix:///run/containerd/containerd.sock') }}
+      image-endpoint: {{ containerd_socket | default('unix:///run/containerd/containerd.sock') }}
+    dest: "/etc/crictl.yaml"
+    backup: true
+
+- name: Show crictl version
+  ansible.builtin.command: crictl version

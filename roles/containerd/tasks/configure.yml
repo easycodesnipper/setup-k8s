@@ -1,14 +1,12 @@
 ---
 # roles/containerd/tasks/configure.yml
 
-- name: "Containerd | Check configuration state"
-  ansible.builtin.lineinfile:
-    path: "{{ containerd_config_file }}"
-    line: "SystemdCgroup = true"
-    state: present
-  check_mode: yes
+- name: "Containerd | Check if SystemdCgroup present"
+  ansible.builtin.command:
+    cmd: grep -q '^\s*SystemdCgroup\s*=\s*true\s*$' "{{ containerd_config_file }}"
   register: cgroup_check
   failed_when: false
+  changed_when: false
 
 - name: Generate default containerd config if missing or SystemdCgroup not true
   become: true
@@ -40,7 +38,23 @@
         line: '\1\2true'
         backrefs: true
       notify: Restart containerd
-  when: >
-    (not cgroup_check.found | default(false)) 
-    or
-    cgroup_check.changed
+  when: cgroup_check.rc != 0
+
+- name: Enable/Disable containerd debugging
+  block:
+    - name: Ensure debug section exists in containerd config
+      ansible.builtin.lineinfile:
+        path: "{{ containerd_config_file }}"
+        line: "[debug]"
+        insertafter: EOF
+        state: present
+      notify: Restart containerd
+
+    - name: Set containerd debug level with exactly 2 spaces indentation and single quotes
+      ansible.builtin.lineinfile:
+        path: "{{ containerd_config_file }}"
+        regexp: '^\s*level\s*=\s*.*'
+        line: "  level = '{{ 'debug' if (containerd_debug | default(false)) | bool else 'info' }}'"
+        insertafter: '^\[debug\]$'
+        backup: true
+      notify: Restart containerd

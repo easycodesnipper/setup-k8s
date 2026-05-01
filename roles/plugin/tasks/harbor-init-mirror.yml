@@ -1,14 +1,32 @@
 ---
 # roles/plugin/tasks/harbor-setup-proxy.yml
 
-- name: "Harbor init proxy"
-  delegate_to: localhost
+- name: "Harbor initialize registry mirror {{ mirror_item.name }}"
   block:
-    - name: "Harbor API | Localize password fact"
-      ansible.builtin.set_fact:
-        _api_password: "{{ hostvars[groups['controllers'][0]]['_final_admin_password'] | trim }}"
+    - name: "Harbor API | Wait for service to be online"
+      ansible.builtin.uri:
+        url: "https://{{ k8s_plugin_harbor_ingress_host | default('harbor.localdomain') }}/api/v2.0/ping"
+        method: GET
+        validate_certs: no
+        status_code: 200
+      register: _api_check
+      until: _api_check.status == 200
+      retries: 20
+      delay: 30
+  
+    - name: "Harbor API | Retrieve admin password from secret"
+      ansible.builtin.shell: |
+        kubectl get secret harbor-admin-password -n {{ _config.namespace }} -o jsonpath='{.data.HARBOR_ADMIN_PASSWORD}' | base64 -d
+      register: _current_pwd_cmd
+      changed_when: false
+      no_log: true
 
-    - name: "Harbor API | Create Registry Endpoint for {{ mirror_item.name }}"
+    - name: "Harbor API | Set internal password fact"
+      ansible.builtin.set_fact:
+        _api_password: "{{ _harbor_admin_password if (_harbor_admin_password is defined) else _current_pwd_cmd.stdout }}"
+      no_log: true
+
+    - name: "Harbor API | Create registry endpoint for {{ mirror_item.name }}"
       ansible.builtin.uri:
         url: "https://{{ k8s_plugin_harbor_ingress_host | default('harbor.localdomain') }}/api/v2.0/registries"
         method: POST
@@ -23,8 +41,12 @@
           type: "{{ mirror_item.type }}"
           insecure: false
         status_code: [201, 409]
+      register: _registry_create_response
+      until: _registry_create_response.status_code == 201 or _registry_create_response.status_code == 409
+      retries: 3
+      delay: 10
 
-    - name: "Harbor API | Get Endpoint ID for {{ mirror_item.name }}"
+    - name: "Harbor API | Get endpoint ID for {{ mirror_item.name }}"
       ansible.builtin.uri:
         url: "https://{{ k8s_plugin_harbor_ingress_host | default('harbor.localdomain') }}/api/v2.0/registries?name={{ mirror_item.name }}"
         method: GET
@@ -34,7 +56,7 @@
         validate_certs: no
       register: _endpoint_query
 
-    - name: "Harbor API | Create Project: {{ mirror_item.name }}"
+    - name: "Harbor API | Create project for: {{ mirror_item.name }}"
       ansible.builtin.uri:
         url: "https://{{ k8s_plugin_harbor_ingress_host | default('harbor.localdomain') }}/api/v2.0/projects"
         method: POST
@@ -53,3 +75,7 @@
             }
           }
         status_code: [201, 409]
+      register: _project_creation_result
+      until: _project_creation_result.status == 201 or _project_creation_result.status == 409
+      retries: 3
+      delay: 10

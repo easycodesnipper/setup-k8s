@@ -43,4 +43,5 @@
         cmd: |
           sed -i.bak "/^\s*\[plugins\.'io\.containerd\.cri\.v1\.images'\.registry\]/,/^\s*\[/ s/^\(\s*config_path\s*=\s*\).*/\1\"\/etc\/containerd\/certs.d\"/" {{ containerd_config_file }}
       notify: Restart containerd
+  when: containerd_registry_mirror_enabled | default(false) | bool
   tags: containerd-setup-registry-mirror

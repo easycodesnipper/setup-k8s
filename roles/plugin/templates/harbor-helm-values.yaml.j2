@@ -5,6 +5,7 @@
 {%- set storage_class_rwo = k8s_plugin_harbor_storage_class | default('longhorn') -%}
 {%- set storage_class_rwx = k8s_plugin_harbor_storage_class_rwx | default('longhorn-rwx') -%}
 {%- set trivy_enabled = k8s_plugin_harbor_trivy_enabled | default(true) | bool -%}
+{%- set jobservice_replicas = k8s_plugin_harbor_jobservice_replicas | default(2) | int %}
 
 # Ingress and TLS configuration
 expose:
@@ -27,6 +28,9 @@ expose:
 # External URL
 externalURL: {{ 'https' if tls_enabled else 'http' }}://{{ harbor_host }}
 
+jobservice:
+  replicas: {{ jobservice_replicas }}
+
 # Persistence settings
 persistence:
   enabled: true
@@ -37,9 +41,10 @@ persistence:
       accessMode: ReadWriteMany
       size: {{ k8s_plugin_harbor_registry_size | default('50Gi') }}
     jobservice:
-      storageClass: "{{ storage_class_rwx }}"
-      accessMode: ReadWriteMany
-      size: {{ k8s_plugin_harbor_jobservice_size | default('1Gi') }}
+      jobLog:
+        storageClass: "{{ storage_class_rwo if jobservice_replicas <= 1 else storage_class_rwx }}"
+        accessMode: {{ 'ReadWriteOnce' if jobservice_replicas <= 1 else 'ReadWriteMany' }}
+        size: {{ k8s_plugin_harbor_jobservice_size | default('1Gi') }}
     database:
       storageClass: "{{ storage_class_rwo }}"
       accessMode: ReadWriteOnce

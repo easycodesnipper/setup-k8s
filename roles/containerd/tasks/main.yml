@@ -9,10 +9,9 @@
   ansible.builtin.include_tasks:
     file: configure.yml
 
-- name: Cconfigure registry mirror(s)
+- name: Configure registry mirror(s)
   ansible.builtin.include_tasks:
     file: configure-registry-mirror.yml
-  when: containerd_registry_mirror_enabled | default(false) | bool
 
 - name: Ensure containerd is running and enabled
   ansible.builtin.systemd:

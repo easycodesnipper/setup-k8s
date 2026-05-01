@@ -157,7 +157,7 @@
       ansible.builtin.shell: |
         set -o pipefail
         helm upgrade --install {{ plugin_config.helm.release }} {{ _chart_file_path }} \
-          --namespace {{ plugin_config.namespace | default('kube-system') }} \
+          --namespace {{ plugin_config.namespace | default('default') }} \
           --create-namespace \
           -f {{ _values_file }}
       args:
@@ -200,7 +200,7 @@
     patch_data: "{{ plugin_config.patch.data | to_json }}"
   ansible.builtin.shell: |
     kubectl patch {{ plugin_config.patch.resource }} \
-      -n {{ plugin_config.namespace | default('kube-system') }} \
+      -n {{ plugin_config.namespace | default('default') }} \
       --type {{ patch_type }} -p '{{ patch_data }}'
   when: 
     - plugin_config['patch'] is defined
@@ -215,7 +215,7 @@
          else plugin_config.wait.labels }}
   ansible.builtin.command: >
     kubectl wait --for={{ plugin_config.wait.condition | default('condition=Ready') }} {{ plugin_config.wait.resource | default('pod') }}
-    -n {{ plugin_config.namespace | default('kube-system') }}
+    -n {{ plugin_config.namespace | default('default') }}
     --selector="{{ _selector }}"
     --timeout={{ plugin_config.wait.timeout | default('5m') }}
   when: 
@@ -243,7 +243,7 @@
   delay: 30
   tags: plugin-post-config
 
-- name: "Plugin {{ plugin_name }} | Setup Ingress domain mapping in /etc/hosts"
+- name: "Plugin {{ plugin_name }} | Create ingress domain mapping in /etc/hosts"
   include_tasks: ingress-domain-mapping.yml
   when: 
     - plugin_config.ingress is defined

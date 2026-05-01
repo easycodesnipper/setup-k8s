@@ -1,126 +1,60 @@
 ---
 # roles/plugin/tasks/harbor.yml
 
-- name: "Extract configuration"
-  ansible.builtin.set_fact:
-    _config: "{{ k8s_plugins[plugin_name] }}"
-  vars:
-    plugin_name: harbor
-  when: k8s_plugins[plugin_name] is defined
-
-- name: "Create namespace {{ _config.namespace }}"
-  ansible.builtin.shell: |
-    kubectl create namespace {{ _config.namespace }} --dry-run=client -o yaml | kubectl apply -f -
-  changed_when: false
-  when: _config is defined
-
-- name: "Check if Harbor secrets already exist in {{ _config.namespace }}"
-  ansible.builtin.command: >
-    kubectl get secret harbor-admin-password -n {{ _config.namespace }} --ignore-not-found
-  register: _harbor_secret_check
-  changed_when: false
-  failed_when: false
-  when: _config is defined
-
-- name: "Generate random admin password if secret does not exist"
-  ansible.builtin.set_fact:
-    _harbor_admin_password: "{{ lookup('password', '/dev/null length=20 chars=ascii_letters,digits') }}"
-  no_log: true # Prevent the random password from being logged in the console or logs
-  when: _config is defined and _harbor_secret_check.stdout == ""
-
-- name: "Create Harbor admin password secret"
-  include_tasks: create-secret.yml
-  vars:
-    k8s_secret_namespace: "{{ _config.namespace }}"
-    k8s_secret_name: "harbor-admin-password"
-    k8s_secret_data:
-      # Key 'secret' is mandatory for Harbor's internal auth logic (existingSecret)
-      secret: "{{ _harbor_admin_password }}"
-      # Key 'HARBOR_ADMIN_PASSWORD' is required by harbor-core env variables
-      HARBOR_ADMIN_PASSWORD: "{{ _harbor_admin_password }}"
-  no_log: true
-  when: _config is defined and _harbor_secret_check.stdout == ""
-  tags:
-    - harbor-secret
-    - plugin-harbor
-
-- name: "Install Harbor via Helm"
-  include_tasks: _install_plugin.yml
-  vars:
-    plugin_name: harbor
-    plugin_config: "{{ k8s_plugins[plugin_name] }}"
-  tags: plugin-harbor
-
-- name: "Post-Installation | Harbor Mirror Configuration"
+- name: "Pre-install Harbor"
   block:
-    - name: "Harbor API | Retrieve admin password from Secret"
+    - name: "Extract configuration"
+      ansible.builtin.set_fact:
+        _config: "{{ k8s_plugins[plugin_name] }}"
+      when: k8s_plugins[plugin_name] is defined
+
+    - name: "Create namespace {{ _config.namespace }}"
       ansible.builtin.shell: |
-        kubectl get secret harbor-admin-password -n {{ _config.namespace }} -o jsonpath='{.data.HARBOR_ADMIN_PASSWORD}' | base64 -d
-      register: _current_pwd_cmd
+        kubectl create namespace {{ _config.namespace }} --dry-run=client -o yaml | kubectl apply -f -
       changed_when: false
-      no_log: true
+      when: _config is defined
 
-    - name: "Harbor API | Set internal password fact"
+    - name: "Check if Harbor secrets already exist in {{ _config.namespace }}"
+      ansible.builtin.command: >
+        kubectl get secret harbor-admin-password -n {{ _config.namespace }} --ignore-not-found
+      register: _harbor_secret_check
+      changed_when: false
+      failed_when: false
+      when: _config is defined
+
+    - name: "Generate random admin password if secret does not exist"
       ansible.builtin.set_fact:
-        _final_admin_password: "{{ _harbor_admin_password if (_harbor_admin_password is defined) else _current_pwd_cmd.stdout }}"
-      no_log: true
+        _harbor_admin_password: "{{ lookup('password', '/dev/null length=20 chars=ascii_letters,digits') }}"
+      no_log: true # Prevent the random password from being logged in the console or logs
+      when: _config is defined and _harbor_secret_check.stdout == ""
 
-    - name: "Harbor API | Wait for service to be online"
-      ansible.builtin.uri:
-        url: "https://{{ k8s_plugin_harbor_ingress_host | default('harbor.localdomain') }}/api/v2.0/ping"
-        method: GET
-        validate_certs: no
-        status_code: 200
-      register: _api_check
-      until: _api_check.status == 200
-      retries: 20
-      delay: 30
-      delegate_to: localhost
-
-    - name: "Harbor API | Initialize Harbor Mirrors"
-      include_tasks: harbor-init-mirror.yml
-      loop: "{{ k8s_plugin_harbor_mirrors | default([]) }}"
-      loop_control:
-        loop_var: mirror_item
-      when: k8s_plugin_harbor_mirrors | length > 0
-  when: _config is defined and k8s_plugin_harbor_init_mirror | default(false) | bool
-  tags: 
-    - plugin-harbor
-    - plugin-harbor-setup-mirror
-
-- name: "Apply Harbor as Containerd registry mirror"
-  block:
-    - name: "Calculate Harbor Exclusive Mirrors"
-      ansible.builtin.set_fact:
-        # We generate a completely new mirror map by replacing the old URLs
-        # with the dynamically joined Harbor Proxy URLs.
-        _final_mirrors_json: >-
-          {% set harbor_plugins = k8s_plugin_harbor_mirrors | default([]) %}
-          {# Use the Harbor domain from variables or fallback to a default string #}
-          {% set harbor_domain = k8s_plugin_harbor_ingress_host | default('harbor.localdomain') %}
-          
-          {% set new_mirrors = {} %}
-          
-          {# Loop through Harbor mirror definitions to build the new dictionary #}
-          {% for item in harbor_plugins %}
-            {# Construct the URL: https://<domain>/<registry_name> #}
-            {% set harbor_url = "https://" ~ harbor_domain ~ "/" ~ item.name %}
-            {# Format: { "docker.io": ["https://harbor.localdomain/docker.io"] } #}
-            {% set _ = new_mirrors.update({ item.name: [harbor_url] }) %}
-          {% endfor %}
-          
-          {{ new_mirrors | to_json }}
-      run_once: true
-
-    - name: "Apply Harbor as containerd registry mirror on all nodes"
-      include_tasks: harbor-containerd-registry-mirror.yml
+    - name: "Create Harbor admin password secret"
+      include_tasks: create-secret.yml
       vars:
-        final_mirrors_json: "{{ _final_mirrors_json }}"
-      loop: "{{ groups['k8s_cluster'] }}"
-      loop_control:
-        loop_var: node_item
-        label: "Processing mirror configuration for {{ node_item }}"
-  when: k8s_plugin_harbor_containerd_registry_mirror_enabled | default(false) | bool
+        k8s_secret_namespace: "{{ _config.namespace }}"
+        k8s_secret_name: "harbor-admin-password"
+        k8s_secret_data:
+          # Key 'secret' is mandatory for Harbor's internal auth logic (existingSecret)
+          secret: "{{ _harbor_admin_password }}"
+          # Key 'HARBOR_ADMIN_PASSWORD' is required by harbor-core env variables
+          HARBOR_ADMIN_PASSWORD: "{{ _harbor_admin_password }}"
+      no_log: true
+      when: _config is defined and _harbor_secret_check.stdout == ""
+  tags:
+    - plugin-harbor-preinstall
+
+- name: "Install Harbor"
+  include_tasks: _install_plugin.yml
   tags: 
-    - plugin-harbor
-    - plugin-harbor-containerd-registry-mirror
+    - plugin-harbor-install
+
+- name: "Harbor API | Initialize registry mirror(s)"
+  include_tasks: harbor-init-mirror.yml
+  loop: "{{ k8s_plugin_harbor_mirrors | default([]) }}"
+  loop_control:
+    loop_var: mirror_item
+  when: 
+    - k8s_plugin_harbor_init_mirror | default(true) | bool
+    - k8s_plugin_harbor_mirrors | length > 0
+  tags: 
+    - plugin-harbor-postinstall

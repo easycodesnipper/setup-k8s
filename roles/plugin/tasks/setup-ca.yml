@@ -47,7 +47,7 @@
                -key-file {{ cert_temp_dir.path }}/wildcard-key.pem \
                {{ cert_domains_list | join(' ') }}
       vars:
-        cert_domains_list: "{{ k8s_plugin_ca_cert_domains | default(['*.localdomain', 'localdomain', '127.0.0.1']) }}"
+        cert_domains_list: "{{ k8s_plugin_ca_cert_domains | default(['gitlab.localdomain', 'longhorn.localdomain', '*.localdomain', 'localhost', '127.0.0.1']) }}"
       args:
         executable: /bin/bash
 

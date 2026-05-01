@@ -8,7 +8,7 @@
 upgradeCheck:
   enabled: {{ k8s_plugin_gitlab_upgrade_check_enabled | default(false) }}
 
-installCertmanager: {{ k8s_plugin_gitlab_install_certmanager | default(true) }}
+installCertmanager: {{ k8s_plugin_gitlab_install_certmanager | default(false) }}
 
 global:
   edition: {{ k8s_plugin_gitlab_global_edition | default('ce') }}
@@ -31,6 +31,8 @@ global:
 {% if tls_enabled %}
       # 2. Only apply the redirect middleware if TLS is actually enabled
       traefik.ingress.kubernetes.io/router.middlewares: "{{ k8s_plugin_traefik_namespace | default('traefik-system') }}-{{ k8s_plugin_traefik_middleware | default('redirect-https') }}@kubernetescrd"
+    tls:
+      secretName: {{ k8s_plugin_gitlab_ingress_tls_secret_name | default('mkcert-wildcard-tls') }}
 {% endif %}
 
   # Parameterized SMTP configuration
@@ -86,16 +88,16 @@ gitlab-shell:
     entrypoint: {{ k8s_plugin_traefik_ports_gitlab_shell | default('gitlab-shell') }}
 
 registry:
-  enabled: false
+  enabled: {{ k8s_plugin_gitlab_registry_enabled | default(false) | bool }}
 
 nginx-ingress:
-  enabled: false
+  enabled: {{ k8s_plugin_gitlab_nginx_ingress_enabled | default(false) | bool }}
 
 traefik:
-  install: false
+  install: {{ k8s_plugin_gitlab_traefik_install | default(false) | bool  }} # using external traefik
 
 prometheus:
-  install: false
+  install: {{ k8s_plugin_gitlab_prometheus_install | default(false) | bool  }}
 
 gitlab-runner:
   # 1. Control installation via the k8s_plugin_gitlab_runner_install variable

@@ -21,6 +21,20 @@ containerd_required_packages:
 
 containerd_config_file: "/etc/containerd/config.toml"
 
-containerd_registry_mirror_enabled: true
+containerd_registry_mirror_enabled: false
 containerd_registry_mirror_skip_verify: true
 containerd_registry_mirror_config_path: "/etc/containerd/certs.d"
+
+containerd_registry_mirrors:
+  "docker.io":
+    - "https://docker.m.daocloud.io"
+  "registry.k8s.io":
+    - "https://k8s.m.daocloud.io"
+  "gcr.io":
+    - "https://gcr.m.daocloud.io"
+  "ghcr.io":
+    - "https://ghcr.m.daocloud.io"
+  "quay.io":
+    - "https://quay.m.daocloud.io"
+
+containerd_debug: false
