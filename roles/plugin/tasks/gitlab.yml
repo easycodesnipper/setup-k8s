@@ -1,40 +1,37 @@
 ---
 # roles/plugin/tasks/devops-gitlab.yml
 
-- name: "Extract configuration"
-  ansible.builtin.set_fact:
-    _config: "{{ k8s_plugins['devops-gitlab'] }}"
-  when: k8s_plugins['devops-gitlab'] is defined
+- name: "Create secret if not exists"
+  block:
+    - name: "Check if secret exists"
+      command: kubectl get secret {{ k8s_plugin_gitlab_smtp_password_secret_name | default('gitlab-smtp-password') }} -n {{ plugin_config.namespace }} --ignore-not-found
+      register: _secret_check
+      changed_when: false
 
-- name: "Create namespace {{ _config.namespace }}"
-  ansible.builtin.shell: |
-    kubectl create namespace {{ _config.namespace }} --dry-run=client -o yaml | kubectl apply -f -
-  changed_when: false
-  when: _config is defined
+    - block:
+      - name: Build secret data dictionary
+        ansible.builtin.set_fact:
+          _secret_data: >-
+            {%- set data = {} -%}
+            {%- set _ = data.update({ (k8s_plugin_gitlab_smtp_password_key | default('password')): k8s_plugin_gitlab_smtp_auth_password }) -%}
+            {{ data }}
 
-- name: "Create GitLab SMTP Secret"
-  include_tasks: create-secret.yml
-  vars:
-    k8s_secret_name: "{{ k8s_plugin_gitlab_smtp_password_secret | default('gitlab-smtp-password') }}"
-    k8s_secret_namespace: "{{ k8s_plugin_gitlab_namespace | default('gitlab-system') }}"
-    k8s_secret_data:
-      password: "{{ k8s_plugin_gitlab_smtp_auth_password }}"
-  when: k8s_plugin_gitlab_smtp_auth_password is defined
-  tags: 
-    - gitlab-secret
-    - plugin-devops-gitlab
+      - name: "Create secret"
+        include_tasks: _create_secret.yml
+        vars:
+          k8s_secret_namespace: "{{ plugin_config.namespace }}"
+          k8s_secret_name: "{{ k8s_plugin_gitlab_smtp_password_secret_name | default('gitlab-smtp-password') }}"
+          k8s_secret_data: "{{ _secret_data }}"
+      when: _secret_check.stdout == ""
+  tags: plugin-gitlab-preinstall
 
 - name: "Install DevOps gitlab"
   include_tasks: _install_plugin.yml
-  vars:
-    plugin_name: devops-gitlab
-    plugin_config: "{{ k8s_plugins[plugin_name] }}"
-  tags: plugin-devops-gitlab
+  tags: plugin-gitlab-install
 
 # ------------------------------------------------------------------------------
 # Post-installation: Automated Runner Token Provisioning
 # ------------------------------------------------------------------------------
-
 - name: "Handle GitLab Runner Automatic Registration"
   block:
     - name: "Get Runner Authentication Token via Rails console"
@@ -65,4 +62,4 @@
   
   # Trigger this block only if the global flag for runner installation is set
   when: k8s_plugin_gitlab_runner_install | default(false) | bool
-  tags: plugin-devops-gitlab
+  tags: plugin-gitlab-postinsall

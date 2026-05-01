@@ -1,0 +1,37 @@
+---
+# roles/plugin/tasks/devops-openproject.yml
+
+- name: "Create secret if not exists"
+  block:
+    - name: "Check if secret exists"
+      command: kubectl get secret {{ k8s_plugin_openproject_existing_secret | default('openproject-passwords') }} -n {{ plugin_config.namespace }} --ignore-not-found
+      register: _secret_check
+      changed_when: false
+
+    - name: "Create secret"
+      block:
+        - name: Generate random passwords
+          ansible.builtin.set_fact:
+            _user_password: "{{ lookup('password', '/dev/null length=32 chars=ascii_letters,digits') }}"
+            _admin_password: "{{ lookup('password', '/dev/null length=32 chars=ascii_letters,digits') }}"
+
+        - name: Build secret data dictionary
+          ansible.builtin.set_fact:
+            _secret_data: >-
+              {%- set data = {} -%}
+              {%- set _ = data.update({ (k8s_plugin_openproject_postgresql_user_password_key | default('postgresql-password')): _user_password }) -%}
+              {%- set _ = data.update({ (k8s_plugin_openproject_postgresql_postgres_password_key | default('postgresql-postgres-password')): _admin_password }) -%}
+              {{ data }}
+
+        - name: "Create secret"
+          include_tasks: _create_secret.yml
+          vars:
+            k8s_secret_namespace: "{{ plugin_config.namespace }}"
+            k8s_secret_name: "{{ k8s_plugin_openproject_existing_secret | default('openproject-passwords') }}"
+            k8s_secret_data: "{{ _secret_data }}"
+      when: _secret_check.stdout == ""
+  tags: plugin-openproject-preinstall
+
+- name: "Install DevOps Openproject"
+  include_tasks: _install_plugin.yml
+  tags: plugin-openproject-install

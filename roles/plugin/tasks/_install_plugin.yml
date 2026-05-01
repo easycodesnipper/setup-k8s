@@ -1,23 +1,20 @@
 # roles/plugin/tasks/_install_plugin.yml
 ---
 
-- name: "Plugin {{ plugin_name }} | Check if dependencies met"
-  include_tasks: check-deps.yml
-  vars:
-    _plugin_name: "{{ plugin_name }}"
-    _plugin_config: "{{ plugin_config }}"
+- name: "Plugin {{ plugin_name }} | Check dependencies"
+  include_tasks: _check_deps.yml
 
 - name: "Plugin {{ plugin_name }} | Copy TLS secret from CA Server and Verify"
   block:
     - name: Copy TLS secret from CA Server
-      include_tasks: copy_tls_secret.yml
+      include_tasks: _copy_tls_secret.yml
       vars:
         target_namespace: "{{ plugin_config.namespace }}"
         source_secret_name: "{{ plugin_config.ingress.tls.secret_name | default('mkcert-wildcard-tls') }}"
         target_secret_name: "{{ source_secret_name | default('mkcert-wildcard-tls') }}"
 
     - name: Verify TLS secret certificate is signed by root CA
-      include_tasks: verify_tls_secret.yml
+      include_tasks: _verify_tls_secret.yml
       vars:
         tls_secret_name: "{{ plugin_config.ingress.tls.secret_name | default('mkcert-wildcard-tls') }}"
         tls_secret_namespace: "{{ plugin_config.namespace }}"
@@ -142,8 +139,8 @@
         executable: /bin/bash
       register: pull_result
       until: pull_result is success
-      retries: 30
-      delay: 10
+      retries: 60
+      delay: 5
       changed_when: true
 
     - name: "Plugin {{ plugin_name }} | Fail if chart file still missing (e.g., pull failed or wrong naming)"
@@ -244,7 +241,7 @@
   tags: plugin-post-config
 
 - name: "Plugin {{ plugin_name }} | Create ingress domain mapping in /etc/hosts"
-  include_tasks: ingress-domain-mapping.yml
+  include_tasks: _ingress_domain_mapping.yml
   when: 
     - plugin_config.ingress is defined
     - plugin_config.ingress.enabled | default(true) | bool

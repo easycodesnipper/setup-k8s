@@ -61,7 +61,7 @@ persistence:
 {% endif %}
 
 # Admin Password
-existingSecretAdminPassword: "harbor-admin-password"
+existingSecretAdminPassword: "{{ k8s_harbor_admin_password_secret_name | default('harbor-admin-password') }}"
 
 # Trivy Configuration
 trivy:

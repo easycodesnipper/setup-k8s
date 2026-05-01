@@ -5,7 +5,7 @@
   gather_facts: yes
   vars:
     k8s_plugins_only: 
-      - devops-gitlab
-      - devops-openproject
+      - gitlab
+      - openproject
   roles:
     - role: plugin

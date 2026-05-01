@@ -42,7 +42,7 @@ global:
     port: {{ k8s_plugin_gitlab_smtp_port | default(465) }}
     user_name: "{{ k8s_plugin_gitlab_smtp_user_name | default('cdeyin@sbkswyy.cn') }}"
     password:
-      secret: "{{ k8s_plugin_gitlab_smtp_password_secret | default('gitlab-smtp-password') }}"
+      secret: "{{ k8s_plugin_gitlab_smtp_password_secret_name | default('gitlab-smtp-password') }}"
       key: "{{ k8s_plugin_gitlab_smtp_password_key | default('password') }}"
     domain: "{{ k8s_plugin_gitlab_smtp_domain | default('smtp.mxhichina.com') }}"
     authentication: "{{ k8s_plugin_gitlab_smtp_authentication | default('login') }}"

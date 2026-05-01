@@ -3,7 +3,4 @@
 
 - name: Install Headlamp
   include_tasks: _install_plugin.yml
-  vars:
-    plugin_name: headlamp
-    plugin_config: "{{ k8s_plugins[plugin_name] }}"
-  tags: plugin-headlamp
+  tags: plugin-headlamp-install

@@ -1,5 +1,5 @@
 ---
-# roles/plugin/tasks/ingress-ssh-tunnel.yml
+# roles/plugin/tasks/_ingress_ssh_tunnel.yml
 
 - name: Create single SSH tunnel for all load balancer IPs
   become: true
@@ -28,8 +28,8 @@
 
     - name: Deploy tunnel wrapper script
       ansible.builtin.template:
-        src: ingress-ssh-tunnel.sh.j2
-        dest: /usr/local/bin/ingress-ssh-tunnel.sh
+        src: _ingress_ssh_tunnel.sh.j2
+        dest: /usr/local/bin/ingress_ssh_tunnel.sh
         mode: '0755'
       vars:
         vars:
@@ -39,16 +39,16 @@
   
     - name: Install systemd service file
       ansible.builtin.template:
-        src: ingress-ssh-tunnel.service.j2
-        dest: /etc/systemd/system/ingress-ssh-tunnel.service
+        src: _ingress_ssh_tunnel.service.j2
+        dest: /etc/systemd/system/ingress_ssh_tunnel.service
         mode: '0644'
       vars:
         service_user: "{{ k8s_ingress_ssh_tunnel_service_user | default('root')}}"
-      notify: Restart ingress-ssh-tunnel
+      notify: Restart ingress_ssh_tunnel
 
     - name: Enable and start service
       ansible.builtin.systemd:
-        name: ingress-ssh-tunnel
+        name: ingress_ssh_tunnel
         enabled: yes
         daemon_reload: yes
         state: started

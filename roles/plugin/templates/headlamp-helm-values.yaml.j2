@@ -5,6 +5,7 @@
 
 {%- set hosts_list = k8s_plugin_headlamp_ingress_hosts | default(['headlamp.localdomain']) %}
 {%- set tls_enabled = k8s_plugin_headlamp_ingress_tls_enabled | default(true) | bool %}
+{%- set secret_name = k8s_plugin_headlamp_ingress_tls_secret_name | default('mkcert-wildcard-tls') %}
 
 replicaCount: {{ k8s_plugin_headlamp_replica_count | default(2) }}
 
@@ -25,5 +26,10 @@ ingress:
 {% if tls_enabled %}
     # 2. Only apply the redirect middleware if TLS is actually enabled
     traefik.ingress.kubernetes.io/router.middlewares: "{{ k8s_plugin_traefik_namespace | default('traefik-system') }}-{{ k8s_plugin_traefik_middleware | default('redirect-https') }}@kubernetescrd"
-  tls: []
+  tls:
+    - hosts:
+{% for host in hosts_list %}
+      - {{ host }}
+{% endfor %}
+      secretName: {{ secret_name }}
 {% endif %}

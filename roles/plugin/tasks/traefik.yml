@@ -2,7 +2,7 @@
 # roles/plugin/tasks/traefik.yml
 
 - name: Setup CA
-  include_tasks: setup-ca.yml
+  include_tasks: _setup_ca.yml
 
 - name: Install Traefik Ingress 
   include_tasks: _install_plugin.yml
@@ -34,5 +34,5 @@
     - plugin-traefik-setup-middleware
 
 - name: Create SSH tunnel for Traefik ingress
-  include_tasks: ingress-ssh-tunnel.yml
+  include_tasks: _ingress_ssh_tunnel.yml
   tags: plugin-traefik

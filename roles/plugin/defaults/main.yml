@@ -172,6 +172,7 @@ k8s_plugins:
   # Description: Cloud-native registry that stores, signs, and scans content.
   # Show latest N available versions: helm search repo harbor/harbor --versions |head -n 4
   # Show supported values: helm show values harbor/harbor --version 1.18.3 | sed -e '/^\s*#/d' -e '/^\s*$/d'
+  # Get admin password: kubectl get secret harbor-admin-password -n harbor-system -o jsonpath='{.data.HARBOR_ADMIN_PASSWORD}' | base64 -d && echo
   harbor:
     enabled: "{{ k8s_plugin_harbor_enabled | default(true) | bool }}"
     depends_on: ['traefik','longhorn']
@@ -243,13 +244,13 @@ k8s_plugins:
         enabled: "{{ k8s_plugin_headlamp_ingress_tls_enabled | default(true) | bool }}"
         secret_name: "{{ k8s_plugin_headlamp_ingress_tls_secret_name | default('mkcert-wildcard-tls') }}"
 
-################################### metrics-server ###################################
+################################### metricsserver ###################################
   # Description: Cluster-wide aggregator of resource usage metrics (CPU, memory) for HPA and kubectl top.
   # Validate if patch works: kubectl get deployment metrics-server -n kube-system -o json | jq '.spec.template.spec.containers[0].args'
   metrics-server:
-    enabled: "{{ k8s_plugin_metrics_server_enabled | default(false) | bool }}"
+    enabled: "{{ k8s_plugin_metricsserver_enabled | default(false) | bool }}"
     namespace: "kube-system"
-    manifest: "{{ k8s_plugin_manifest_proxy_safe | default('') }}https://github.com/kubernetes-sigs/metrics-server/releases/download/v{{ k8s_plugin_metrics_server_version | default('0.8.1') }}/components.yaml"
+    manifest: "{{ k8s_plugin_manifest_proxy_safe | default('') }}https://github.com/kubernetes-sigs/metrics-server/releases/download/v{{ k8s_plugin_metricsserver_version | default('0.8.1') }}/components.yaml"
     patch:
       type: json
       resource: "deployment/metrics-server"
@@ -264,14 +265,14 @@ k8s_plugins:
     wait:
       labels: "k8s-app=metrics-server"
 
-################################### devops-gitlab ###################################
+################################### gitlab ###################################
   # Description: Full DevOps platform providing Git repositories, CI/CD pipelines
   # Show available version: helm search repo gitlab-jh/gitlab --versions |head -n 4
   # Show supported values: helm show values gitlab-jh/gitlab --version 9.11.1 | sed -e '/^\s*#/d' -e '/^\s*$/d'
   # Get password of `root` when logon in web:         kubectl get secret -n gitlab-system gitlab-gitlab-initial-root-password -o jsonpath="{.data.password}" | base64 --decode && echo
   # Get password of DB user `gitlab` in postgresql:   kubectl get secret -n gitlab-system gitlab-postgresql-password -o jsonpath="{.data.postgresql-password}" | base64 -d && echo
   # Get password of DB user `postgres` in postgresql: kubectl get secret -n gitlab-system gitlab-postgresql-password -o jsonpath="{.data.postgresql-postgres-password}" | base64 -d && echo
-  devops-gitlab:
+  gitlab:
     enabled: "{{ k8s_plugin_gitlab_enabled | default(false) }}"
     depends_on: ['traefik','longhorn']
     namespace: "{{ k8s_plugin_gitlab_namespace | default('gitlab-system') }}"
@@ -289,11 +290,11 @@ k8s_plugins:
         enabled: "{{ k8s_plugin_gitlab_ingress_tls_enabled | default(true) | bool }}"
         secret_name: "{{ k8s_plugin_gitlab_ingress_tls_secret_name | default('mkcert-wildcard-tls') }}"
 
-################################### devops-openproject ###################################
+################################### openproject ###################################
   # Description: Open-source project management tool (alternative to Jira)
   # Show latest N available versions: helm search repo openproject/openproject --versions |head -n 4
   # Show supported values: helm show values openproject/openproject --version 13.5.1 | sed -e '/^\s*#/d' -e '/^\s*$/d'
-  devops-openproject:
+  openproject:
     enabled: "{{ k8s_plugin_openproject_enabled | default(false) }}"
     depends_on: ['traefik','longhorn']
     namespace: "{{ k8s_plugin_openproject_namespace | default('openproject-system') }}"

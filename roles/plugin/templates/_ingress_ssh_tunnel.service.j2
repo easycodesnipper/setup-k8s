@@ -7,7 +7,7 @@ After=network.target
 User={{ service_user | default('root')}}
 Group=root
 Type=simple
-ExecStart=/usr/local/bin/ingress-ssh-tunnel.sh
+ExecStart=/usr/local/bin/ingress_ssh_tunnel.sh
 Restart=always
 RestartSec=10
 # Optional: Ensure the process can bind to low ports even if User wasn't root

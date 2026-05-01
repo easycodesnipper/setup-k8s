@@ -1,5 +1,5 @@
 ---
-# roles/plugin/tasks/harbor-setup-proxy.yml
+# roles/plugin/tasks/_harbor_init_mirror.yml
 
 - name: "Harbor initialize registry mirror {{ mirror_item.name }}"
   block:
@@ -16,14 +16,13 @@
   
     - name: "Harbor API | Retrieve admin password from secret"
       ansible.builtin.shell: |
-        kubectl get secret harbor-admin-password -n {{ _config.namespace }} -o jsonpath='{.data.HARBOR_ADMIN_PASSWORD}' | base64 -d
+        kubectl get secret {{ k8s_harbor_admin_password_secret_name | default('harbor-admin-password') }} -n {{ plugin_config.namespace }} -o jsonpath='{.data.HARBOR_ADMIN_PASSWORD}' | base64 -d
       register: _current_pwd_cmd
       changed_when: false
-      no_log: true
 
     - name: "Harbor API | Set internal password fact"
       ansible.builtin.set_fact:
-        _api_password: "{{ _harbor_admin_password if (_harbor_admin_password is defined) else _current_pwd_cmd.stdout }}"
+        _api_password: "{{ _current_pwd_cmd.stdout }}"
       no_log: true
 
     - name: "Harbor API | Create registry endpoint for {{ mirror_item.name }}"
@@ -42,7 +41,7 @@
           insecure: false
         status_code: [201, 409]
       register: _registry_create_response
-      until: _registry_create_response.status_code == 201 or _registry_create_response.status_code == 409
+      until: _registry_create_response.status == 201 or _registry_create_response.status == 409
       retries: 3
       delay: 10
 

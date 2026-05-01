@@ -6,6 +6,12 @@
 {%- set app_host = k8s_plugin_openproject_ingress_host | default('openproject.localdomain') %}
 {%- set tls_enabled = k8s_plugin_openproject_ingress_tls_enabled | default(true) | bool %}
 {%- set secret_name = k8s_plugin_openproject_ingress_tls_secret | default('mkcert-wildcard-tls') %}
+{%- set storage_class_rwo = k8s_plugin_openproject_storage_class | default('longhorn') -%}
+{%- set storage_class_rwx = k8s_plugin_openproject_storage_class_rwx | default('longhorn-rwx') -%}
+
+dbInit:
+  image:
+    imagePullPolicy: "{{ k8s_plugin_openproject_image_pull_policy | default('IfNotPresent') }}"
 
 image:
   imagePullPolicy: "{{ k8s_plugin_openproject_image_pull_policy | default('IfNotPresent') }}"
@@ -13,26 +19,34 @@ image:
 deployment:
   replicas: {{ k8s_plugin_openproject_replicas | default(1) }}
 
+hocuspocus:
+  enabled: {{ k8s_plugin_openproject_hocuspocus_enabled | default(true)}}
+  image:
+    imagePullPolicy: "{{ k8s_plugin_openproject_image_pull_policy | default('IfNotPresent') }}"
+
 openproject:
   hostName: "{{ k8s_plugin_openproject_ingress_host | default('openproject.localdomain') }}"
   https: {{ k8s_plugin_openproject_ingress_tls_enabled | default(true) | lower }}
   seed: "{{ k8s_plugin_openproject_seed | default('super-secret-seed-phrase') }}"
   passwordSecret: "{{ k8s_plugin_openproject_existing_secret | default('openproject-passwords') }}"
   passwordSecretKey: "admin-password"
+  extraEnvVarsSecret: ""
+
+persistence:
+  accessModes:
+    - "ReadWriteMany"
+  storageClass: "{{ storage_class_rwx }}"
+  size: "{{ k8s_plugin_openproject_data_volume_size | default('20Gi') }}"
 
 postgresql:
   auth:
     existingSecret: "{{ k8s_plugin_openproject_existing_secret | default('openproject-passwords') }}"
     secretKeys:
-      userPasswordKey: "password"
-      adminPasswordKey: "password"
+      userPasswordKey: "{{ k8s_plugin_openproject_postgresql_user_password_key |default('postgresql-password') }}"
+      adminPasswordKey: "{{ k8s_plugin_openproject_postgresql_postgres_password_key |default('postgresql-postgres-password') }}"
   persistence:
-    storageClass: "{{ k8s_plugin_openproject_storage_class | default('longhorn') }}"
+    storageClass: "{{ storage_class_rwo }}"
     size: "{{ k8s_plugin_openproject_postgres_volume_size | default('10Gi') }}"
-
-persistence:
-  storageClass: "{{ k8s_plugin_openproject_storage_class | default('longhorn') }}"
-  size: "{{ k8s_plugin_openproject_data_volume_size | default('20Gi') }}"
 
 ingress:
   enabled: true
@@ -45,9 +59,5 @@ ingress:
   tls:
     enabled: true
     secretName: "{{ k8s_plugin_openproject_ingress_tls_secret | default('mkcert-wildcard-tls') }}"
-    extraTls:
-      - secretName: "{{ k8s_plugin_openproject_ingress_tls_secret | default('mkcert-wildcard-tls') }}"
-        hosts:
-          - "{{ k8s_plugin_openproject_ingress_host | default('openproject.localdomain') }}"
 {% endif %}
 

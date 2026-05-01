@@ -1,7 +1,7 @@
 ---
-# roles/devops/templates/ca-server-manifest.yaml.j2
+# roles/devops/templates/_caserver_manifest.yaml.j2
 
-{# ansible localhost -m template -a "src=roles/plugin/templates/ca-server-manifest.yaml.j2 dest=/tmp/ca-server.yaml" #}
+{# ansible localhost -m template -a "src=roles/plugin/templates/_caserver_manifest.yaml.j2 dest=/tmp/ca-server.yaml" #}
 
 # Deployment: Runs a lightweight Nginx to serve the rootCA.pem file
 apiVersion: apps/v1
