@@ -198,7 +198,7 @@ k8s_plugins:
   # Schema of values: https://github.com/kubernetes-sigs/headlamp/blob/v0.41.0/charts/headlamp/values.schema.json
   # How to get token: kubectl get secret -n headlamp-system headlamp-user-token -o jsonpath='{.data.token}' | base64 --decode && echo
   headlamp:
-    enabled: "{{ k8s_plugin_headlamp_enabled | default(false) | bool }}"
+    enabled: "{{ k8s_plugin_headlamp_enabled | default(true) | bool }}"
     depends_on: ['traefik','longhorn']
     namespace: "headlamp-system"
     helm:
@@ -273,7 +273,7 @@ k8s_plugins:
   # Get password of DB user `gitlab` in postgresql:   kubectl get secret -n gitlab-system gitlab-postgresql-password -o jsonpath="{.data.postgresql-password}" | base64 -d && echo
   # Get password of DB user `postgres` in postgresql: kubectl get secret -n gitlab-system gitlab-postgresql-password -o jsonpath="{.data.postgresql-postgres-password}" | base64 -d && echo
   gitlab:
-    enabled: "{{ k8s_plugin_gitlab_enabled | default(false) }}"
+    enabled: "{{ k8s_plugin_gitlab_enabled | default(true) }}"
     depends_on: ['traefik','longhorn']
     namespace: "{{ k8s_plugin_gitlab_namespace | default('gitlab-system') }}"
     helm:
@@ -295,7 +295,7 @@ k8s_plugins:
   # Show latest N available versions: helm search repo openproject/openproject --versions |head -n 4
   # Show supported values: helm show values openproject/openproject --version 13.5.1 | sed -e '/^\s*#/d' -e '/^\s*$/d'
   openproject:
-    enabled: "{{ k8s_plugin_openproject_enabled | default(false) }}"
+    enabled: "{{ k8s_plugin_openproject_enabled | default(true) }}"
     depends_on: ['traefik','longhorn']
     namespace: "{{ k8s_plugin_openproject_namespace | default('openproject-system') }}"
     helm:

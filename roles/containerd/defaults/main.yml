@@ -28,6 +28,7 @@ containerd_registry_mirror_config_path: "/etc/containerd/certs.d"
 containerd_registry_mirrors:
   "docker.io":
     - "https://docker.m.daocloud.io"
+    - "https://43t5y22xjjl6nrgrzx.xuanyuan.run"
   "registry.k8s.io":
     - "https://k8s.m.daocloud.io"
   "gcr.io":

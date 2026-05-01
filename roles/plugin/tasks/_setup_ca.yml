@@ -39,6 +39,29 @@
         suffix: _k8s_ca
       register: cert_temp_dir
 
+    - name: Build list of domains from plugins with TLS-enabled ingress
+      ansible.builtin.set_fact:
+        cert_domains_list: >-
+          {{
+            (
+              k8s_plugins | dict2items
+              | selectattr('value.enabled', 'equalto', true)
+              | selectattr('value.ingress.tls.enabled', 'defined')
+              | selectattr('value.ingress.tls.enabled', 'equalto', true)
+              | map(attribute='key')
+              | map('regex_replace', '^(.*)$', '\1.' ~ (k8s_domain | default('localdomain')))
+              | list
+            ) + [
+              '*.' ~ (k8s_domain | default('localdomain')),
+              'localhost',
+              '127.0.0.1'
+            ]
+          }}
+
+    - name: Show final certificate domains (debug)
+      ansible.builtin.debug:
+        var: cert_domains_list
+
     - name: Generate wildcard certificates (using system CA)
       become: true
       ansible.builtin.shell: |
@@ -46,8 +69,6 @@
         mkcert -cert-file {{ cert_temp_dir.path }}/wildcard.pem \
                -key-file {{ cert_temp_dir.path }}/wildcard-key.pem \
                {{ cert_domains_list | join(' ') }}
-      vars:
-        cert_domains_list: "{{ k8s_plugin_ca_cert_domains | default(['gitlab.localdomain', 'longhorn.localdomain', 'headlamp.localdomain', 'harbor.localdomain', '*.localdomain', 'localhost', '127.0.0.1']) }}"
       args:
         executable: /bin/bash
 
