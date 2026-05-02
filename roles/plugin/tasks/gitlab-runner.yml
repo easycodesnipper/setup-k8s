@@ -1,0 +1,49 @@
+---
+# roles/plugin/tasks/gitlab-runner.yml
+
+- name: "Handle GitLab Runner Automatic Registration"
+  block:
+    - name: "Wait for GitLab readiness endpoint (200 OK) via toolbox"
+      shell: |
+        kubectl exec -n {{ k8s_plugin_gitlab_namespace | default('gitlab-system') }} \
+          deployment/gitlab-toolbox -- \
+          curl -s -o /dev/null -w "%{http_code}" \
+          http://gitlab-webservice-default.gitlab-system.svc.cluster.local:8181/-/readiness
+      register: readiness
+      retries: 30
+      delay: 10
+      until: readiness.stdout == "200"
+      changed_when: false
+
+    - name: "Get Runner Authentication Token via Rails console"
+      ansible.builtin.shell: |
+        kubectl exec -n {{ k8s_plugin_gitlab_namespace | default('gitlab-system') }} \
+          deployment/{{ k8s_plugin_gitlab_toolbox_deployment | default('gitlab-toolbox') }} \
+          -- gitlab-rails runner "
+          runner = Ci::Runner.instance_type.first_or_initialize(
+            description: 'Auto-Provisioned Gitlab Runner',
+            tag_list: ['kubernetes', 'cluster-internal'],
+            run_untagged: true
+          )
+          runner.save!
+          puts runner.token"
+      register: gitlab_runner_token_output
+      changed_when: false
+
+    - name: "Verify that token was retrieved and is valid (starts with 'glrt')"
+      ansible.builtin.fail:
+        msg: "Failed to retrieve a valid runner token (must start with 'glrt'). Got: {{ gitlab_runner_token_output.stdout_lines | last | default('EMPTY') }}"
+      when: >
+        gitlab_runner_token_output.stdout_lines | length == 0 or
+        (gitlab_runner_token_output.stdout_lines | last | default('') | trim | length == 0) or
+        (gitlab_runner_token_output.stdout_lines | last | default('') | trim is not match('^glrt'))
+
+    - name: "Set runner token variable"
+      ansible.builtin.set_fact:
+        validated_runner_token: "{{ gitlab_runner_token_output.stdout_lines | last | trim }}"
+
+    - name: "Install Gitlab Runner"
+      include_tasks: _install_plugin.yml
+      vars:
+        k8s_plugin_gitlab_runner_token_value: "{{ validated_runner_token }}"
+  tags: plugin-gitlabrunner-install

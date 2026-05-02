@@ -100,18 +100,4 @@ prometheus:
   install: {{ k8s_plugin_gitlab_prometheus_install | default(false) | bool  }}
 
 gitlab-runner:
-  # 1. Control installation via the k8s_plugin_gitlab_runner_install variable
-  install: {{ k8s_plugin_gitlab_runner_install | default(false) | bool }} # not install for fresh and postinstall it with runnerToken
-
-  # 2. Corrected the missing closing brace and ensured valid internal URL
-  gitlabUrl: {{ k8s_plugin_gitlab_runner_gitlab_url | default('http://gitlab-webservice-default.' + (k8s_plugin_gitlab_namespace | default('gitlab-system')) + '.svc.cluster.local:8181/') }}
-
-  # 3. New field for the Authentication Token (glrt-...)
-  runnerToken: "{{ k8s_plugin_gitlab_runner_token_value | default('') }}"
-
-  # 4. Global concurrency for the runner pods
-  concurrent: {{ k8s_plugin_gitlab_runner_concurrent | default(10) }}
-
-  # 5. RBAC settings for the runner executor
-  rbac:
-    create: {{ k8s_plugin_gitlab_runner_rbac_create | default(true) | bool }}
+  install: false # Independent install as plugin

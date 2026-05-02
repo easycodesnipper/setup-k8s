@@ -1,0 +1,11 @@
+---
+# roles/plugin/templates/gitlab-runner-helm-values.j2
+
+gitlabUrl: {{ k8s_plugin_gitlab_runner_gitlab_url | default('http://gitlab-webservice-default.gitlab-system.svc.cluster.local:8181/') }}
+
+runnerToken: "{{ k8s_plugin_gitlab_runner_token_value | default('') }}"
+
+concurrent: {{ k8s_plugin_gitlab_runner_concurrent | default(10) }}
+
+rbac:
+  create: {{ k8s_plugin_gitlab_runner_rbac_create | default(true) | bool }}

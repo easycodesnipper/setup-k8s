@@ -1,5 +1,5 @@
 ---
-# roles/plugin/tasks/devops-gitlab.yml
+# roles/plugin/tasks/gitlab.yml
 
 - name: "Create secret if not exists"
   block:
@@ -34,9 +34,19 @@
 # ------------------------------------------------------------------------------
 - name: "Handle GitLab Runner Automatic Registration"
   block:
+    - name: "Wait for GitLab database to accept connections"
+      ansible.builtin.shell: |
+        kubectl exec -n {{ k8s_plugin_gitlab_namespace | default('gitlab-system') }} \
+          deployment/gitlab-toolbox -- \
+          gitlab-rails runner "puts ActiveRecord::Base.connection.active?" 2>/dev/null | grep -q true
+      register: db_check
+      retries: 30
+      delay: 10
+      until: db_check is success
+      changed_when: false
+
     - name: "Get Runner Authentication Token via Rails console"
-      # Execute Rails command inside the toolbox pod (has gitlab-rails)
-      shell: |
+      ansible.builtin.shell: |
         kubectl exec -n {{ k8s_plugin_gitlab_namespace | default('gitlab-system') }} \
           deployment/{{ k8s_plugin_gitlab_toolbox_deployment | default('gitlab-toolbox') }} \
           -- gitlab-rails runner "
@@ -50,16 +60,33 @@
       register: gitlab_runner_token_output
       changed_when: false
 
-    # - debug:
-    #     msg: "{{ gitlab_runner_token_output.stdout_lines }}"
+    - name: "Verify that token was retrieved and is valid (starts with 'glrt')"
+      ansible.builtin.fail:
+        msg: "Failed to retrieve a valid runner token (must start with 'glrt'). Got: {{ gitlab_runner_token_output.stdout_lines | last | default('EMPTY') }}"
+      when: >
+        gitlab_runner_token_output.stdout_lines | length == 0 or
+        (gitlab_runner_token_output.stdout_lines | last | default('') | trim | length == 0) or
+        (gitlab_runner_token_output.stdout_lines | last | default('') | trim is not match('^glrt'))
+
+    - name: "Set runner token variable"
+      ansible.builtin.set_fact:
+        validated_runner_token: "{{ gitlab_runner_token_output.stdout_lines | last | trim }}"
 
     - name: "Re-run GitLab installation to enable Runner with the new token"
       include_tasks: _install_plugin.yml
       vars:
-        plugin_name: devops-gitlab
-        plugin_config: "{{ k8s_plugins[plugin_name] }}"
-        k8s_plugin_gitlab_runner_install: true
-        k8s_plugin_gitlab_runner_token_value: "{{ gitlab_runner_token_output.stdout_lines | last }}"
-  
+        k8s_plugin_gitlab_runner_token_value: "{{ validated_runner_token }}"
+
+    - name: "Fix runner secret Helm metadata"
+      ansible.builtin.shell: |
+        ns={{ k8s_plugin_gitlab_namespace | default('gitlab-system') }}
+        secret=gitlab-gitlab-runner-secret
+        if kubectl get secret -n "$ns" "$secret" &>/dev/null; then
+          kubectl patch secret -n "$ns" "$secret" -p '{"metadata":{"labels":{"app.kubernetes.io/managed-by":"Helm"},"annotations":{"meta.helm.sh/release-name":"gitlab","meta.helm.sh/release-namespace":"'$ns'"}}}'
+        else
+          echo "Secret does not exist, will be created by Helm upgrade"
+        fi
+      changed_when: false
+
   when: k8s_plugin_gitlab_runner_install | default(false) | bool
   tags: plugin-gitlab-postinsall

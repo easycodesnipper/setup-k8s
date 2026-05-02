@@ -290,6 +290,25 @@ k8s_plugins:
         enabled: "{{ k8s_plugin_gitlab_ingress_tls_enabled | default(true) | bool }}"
         secret_name: "{{ k8s_plugin_gitlab_ingress_tls_secret_name | default('mkcert-wildcard-tls') }}"
 
+################################### gitlab-runner ###################################
+  # Description: Full DevOps platform providing Gitlab CI/CD pipelines
+  # Show available version: helm search repo gitlab-jh/gitlab-runner --versions |head -n 4
+  # Show supported values: helm show values gitlab-jh/gitlab-runner --version 0.88.1 | sed -e '/^\s*#/d' -e '/^\s*$/d'
+  # Get runner token: kubectl get secret -n gitlab-system gitlab-runner -o jsonpath='{.data.runner-token}' | base64 -d && echo
+  gitlab-runner:
+    enabled: "{{ k8s_plugin_gitlab_runner_enabled | default(true) }}"
+    depends_on: ['gitlab']
+    namespace: "{{ k8s_plugin_gitlab_namespace | default('gitlab-system') }}" # Reuse gitlab namespace
+    helm:
+      repository:
+        name: "{{ k8s_plugin_gitlab_runner_helm_repo_name | default('gitlab-jh') }}" # Reuse gitlab repo
+        url: "{{ k8s_plugin_gitlab_runner_helm_repo_url | default('https://charts.gitlab.cn') }}"
+      release: "{{ k8s_plugin_gitlab_runner_helm_release | default('gitlab-runner') }}"
+      chart: "{{ k8s_plugin_gitlab_runner_helm_chart | default('gitlab-jh/gitlab-runner') }}"
+      version: "{{ k8s_plugin_gitlab_runner_version | default('0.88.1') }}"
+    wait:
+      labels: "app=gitlab-runner"
+
 ################################### openproject ###################################
   # Description: Open-source project management tool (alternative to Jira)
   # Show latest N available versions: helm search repo openproject/openproject --versions |head -n 4

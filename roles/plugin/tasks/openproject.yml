@@ -1,5 +1,5 @@
 ---
-# roles/plugin/tasks/devops-openproject.yml
+# roles/plugin/tasks/openproject.yml
 
 - name: "Create secret if not exists"
   block:
