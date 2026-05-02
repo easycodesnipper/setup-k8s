@@ -24,3 +24,6 @@ k8s_plugin_harbor_mirrors:
 
 # Vault Variables
 k8s_plugin_gitlab_smtp_auth_password: "{{ vault_k8s_plugin_gitlab_smtp_auth_password }}"
+
+# Post-install gitlab-runner
+# k8s_plugin_gitlab_runner_install: true

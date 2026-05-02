@@ -101,7 +101,7 @@ prometheus:
 
 gitlab-runner:
   # 1. Control installation via the k8s_plugin_gitlab_runner_install variable
-  install: {{ k8s_plugin_gitlab_runner_install | default(false) | bool }}
+  install: {{ k8s_plugin_gitlab_runner_install | default(false) | bool }} # not install for fresh and postinstall it with runnerToken
 
   # 2. Corrected the missing closing brace and ensured valid internal URL
   gitlabUrl: {{ k8s_plugin_gitlab_runner_gitlab_url | default('http://gitlab-webservice-default.' + (k8s_plugin_gitlab_namespace | default('gitlab-system')) + '.svc.cluster.local:8181/') }}

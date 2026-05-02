@@ -1,61 +1,63 @@
 ---
 # roles/plugin/tasks/main.yml
 
-- name: Determine raw input for k8s_plugins_only
-  set_fact:
-    _raw_input: "{{ k8s_plugins_only | default('') if k8s_plugins_only is defined else '' }}"
+- name: "Install plugins"
+  block:
+    - name: Determine raw input for k8s_plugins_only
+      set_fact:
+        _raw_input: "{{ k8s_plugins_only | default('') if k8s_plugins_only is defined else '' }}"
 
-- name: Convert raw input to list (handles both string and list)
-  set_fact:
-    _as_list: >-
-      {{
-        [] if _raw_input == '' or _raw_input | length == 0
-        else (_raw_input | split(',') | map('trim') | select('string') | list)
-          if _raw_input is string
-        else (_raw_input | map('trim') | select('string') | list)
-      }}
+    - name: Convert raw input to list (handles both string and list)
+      set_fact:
+        _as_list: >-
+          {{
+            [] if _raw_input == '' or _raw_input | length == 0
+            else (_raw_input | split(',') | map('trim') | select('string') | list)
+              if _raw_input is string
+            else (_raw_input | map('trim') | select('string') | list)
+          }}
 
-- name: Get plugins enabled via k8s_plugins[].enabled
-  set_fact:
-    _enabled_plugins: >-
-      {{
-        k8s_plugins | dict2items
-        | selectattr('value.enabled', 'defined')
-        | selectattr('value.enabled', 'equalto', true)
-        | list
-      }}
+    - name: Get plugins enabled via k8s_plugins[].enabled
+      set_fact:
+        _enabled_plugins: >-
+          {{
+            k8s_plugins | dict2items
+            | selectattr('value.enabled', 'defined')
+            | selectattr('value.enabled', 'equalto', true)
+            | list
+          }}
 
-- name: Filter plugins by explicit names (k8s_plugins_only)
-  set_fact:
-    _filtered_plugins: >-
-      {{
-        k8s_plugins | dict2items
-        | selectattr('key', 'in', _as_list)
-        | list
-      }}
+    - name: Filter plugins by explicit names (k8s_plugins_only)
+      set_fact:
+        _filtered_plugins: >-
+          {{
+            k8s_plugins | dict2items
+            | selectattr('key', 'in', _as_list)
+            | list
+          }}
 
-- name: Decide which plugins to install
-  set_fact:
-    _plugins_to_install: "{{ _filtered_plugins if (_as_list | length > 0) else _enabled_plugins }}"
+    - name: Decide which plugins to install
+      set_fact:
+        _plugins_to_install: "{{ _filtered_plugins if (_as_list | length > 0) else _enabled_plugins }}"
 
-- name: Show plugins to be installed
-  debug:
-    msg: "Plugins to install: {{ _plugins_to_install | map(attribute='key') | list }}"
+    - name: Show plugins to be installed
+      debug:
+        msg: "Plugins to install: {{ _plugins_to_install | map(attribute='key') | list }}"
 
-- name: Fail if no plugins are defined for installation
-  fail:
-    msg: >
-      No plugins were identified for installation. 
-      Check if name is correctly aligned with name in defaults.xml or if plugins are enabled.
-  when: _plugins_to_install | length == 0
+    - name: Fail if no plugins are defined for installation
+      fail:
+        msg: >
+          No plugins were identified for installation. 
+          Check if name is correctly aligned with name in defaults.xml or if plugins are enabled.
+      when: _plugins_to_install | length == 0
 
-- name: Install Kubernetes plugins
-  include_tasks: "{{ item.key }}.yml"
-  vars:
-    plugin_name: "{{ item.key }}"
-    plugin_config: "{{ item.value }}"
-  loop: "{{ _plugins_to_install }}"
-  loop_control:
-    label: "Plugin: {{ item.key }}"
-  when: k8s_plugins is mapping
+    - name: Install Kubernetes plugins
+      include_tasks: "{{ item.key }}.yml"
+      vars:
+        plugin_name: "{{ item.key }}"
+        plugin_config: "{{ item.value }}"
+      loop: "{{ _plugins_to_install }}"
+      loop_control:
+        label: "Plugin: {{ item.key }}"
+      when: k8s_plugins is mapping
   tags: "plugins-install"

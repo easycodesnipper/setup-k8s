@@ -35,31 +35,31 @@
 - name: "Handle GitLab Runner Automatic Registration"
   block:
     - name: "Get Runner Authentication Token via Rails console"
-      # Execute Rails command inside the webservice pod to generate/retrieve the token
-      # The wait logic in _install_plugin.yml ensures the pod is ready here
+      # Execute Rails command inside the toolbox pod (has gitlab-rails)
       shell: |
         kubectl exec -n {{ k8s_plugin_gitlab_namespace | default('gitlab-system') }} \
-        deployment/{{ k8s_plugin_gitlab_namespace | default('gitlab-system') }}-webservice-default \
-        -c webservice -- gitlab-rails runner "
-        runner = Ci::Runner.instance_type.first_or_initialize(
-          description: 'Auto-Provisioned K8s Runner',
-          tag_list: ['kubernetes', 'cluster-internal'],
-          run_untagged: true
-        )
-        runner.save!
-        puts runner.token"
+          deployment/{{ k8s_plugin_gitlab_toolbox_deployment | default('gitlab-toolbox') }} \
+          -- gitlab-rails runner "
+          runner = Ci::Runner.instance_type.first_or_initialize(
+            description: 'Auto-Provisioned Gitlab Runner',
+            tag_list: ['kubernetes', 'cluster-internal'],
+            run_untagged: true
+          )
+          runner.save!
+          puts runner.token"
       register: gitlab_runner_token_output
       changed_when: false
+
+    # - debug:
+    #     msg: "{{ gitlab_runner_token_output.stdout_lines }}"
 
     - name: "Re-run GitLab installation to enable Runner with the new token"
       include_tasks: _install_plugin.yml
       vars:
         plugin_name: devops-gitlab
         plugin_config: "{{ k8s_plugins[plugin_name] }}"
-        # Override variables to trigger Runner installation in the J2 template
         k8s_plugin_gitlab_runner_install: true
         k8s_plugin_gitlab_runner_token_value: "{{ gitlab_runner_token_output.stdout_lines | last }}"
   
-  # Trigger this block only if the global flag for runner installation is set
   when: k8s_plugin_gitlab_runner_install | default(false) | bool
   tags: plugin-gitlab-postinsall
