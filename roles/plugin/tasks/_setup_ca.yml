@@ -130,19 +130,9 @@
         suffix: _ca_configmap
       register: cm_temp_dir
 
-    - name: Write index.html to temporary file
-      become: false
-      ansible.builtin.copy:
-        content: |
-          <!DOCTYPE html>
-          <html>
-          <head><title>CA Certificate Distribution</title></head>
-          <body>
-            <h1>Internal Root CA</h1>
-            <p>Click the link below to download the certificate:</p>
-            <a href="/rootCA.pem" download="rootCA.pem">Download rootCA.pem</a>
-          </body>
-          </html>
+    - name: Write index.html from template
+      ansible.builtin.template:
+        src: _how-to-install-ca.html.j2
         dest: "{{ cm_temp_dir.path }}/index.html"
 
     - name: Write rootCA.pem to temporary file
