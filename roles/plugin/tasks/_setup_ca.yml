@@ -3,7 +3,10 @@
 
 - name: Create Required Namespace
   ansible.builtin.shell: |
+    set -o pipefail
     kubectl create namespace {{ k8s_ca_namespace | default('ca-system') }} --dry-run=client -o yaml | kubectl apply -f -
+  args:
+    executable: /bin/bash
   changed_when: false
 
 - name: Setup system-wide mkcert CA and distribute to all cluster nodes
@@ -31,6 +34,7 @@
       ansible.builtin.command: mkcert -CAROOT
       register: mkcert_caroot
       changed_when: false
+      check_mode: false
 
     - name: Create temporary directory for certificate generation
       become: false
@@ -38,6 +42,7 @@
         state: directory
         suffix: _k8s_ca
       register: cert_temp_dir
+      check_mode: false
 
     - name: Build list of domains from plugins with TLS-enabled ingress
       ansible.builtin.set_fact:
@@ -71,14 +76,15 @@
                {{ cert_domains_list | join(' ') }}
       args:
         executable: /bin/bash
+      changed_when: true
 
     - name: Fix permissions on temporary directory and certificate files
       become: true
       ansible.builtin.file:
         path: "{{ cert_temp_dir.path }}"
         state: directory
-        mode: '0755'
-        recurse: yes
+        mode: "0755"
+        recurse: true
 
     - name: Read CA certificate content (rootCA.pem)
       become: true
@@ -91,26 +97,23 @@
     # ansible localhost -m shell -a "ls -l /etc/ssl/certs | grep rootCA"
     # ansible -i inventory.ini k8s_cluster -m shell -a "sha256sum /usr/local/share/ca-certificates/rootCA.crt | awk '{print $1}'"
     # ansible localhost -m shell -a "sha256sum /usr/local/share/ca-certificates/rootCA.crt | awk '{print $1}'"
+    # ansible -i inventory.ini k8s_cluster -m shell -a "echo | openssl s_client -connect gitlab.localdomain:443 -CAfile /etc/ssl/certs/ca-certificates.crt | grep 'Verify return code: 0 (ok)'"
     - name: "Local & Cluster | Distribute CA certificate"
       become: true
       ansible.builtin.copy:
         content: "{{ ca_content_b64['content'] | b64decode }}"
-        dest: "/usr/local/share/ca-certificates/rootCA.crt"
-        mode: '0644'
+        dest: >-
+          {{ (hostvars[node_item].ansible_os_family == 'RedHat') | ternary(
+              '/usr/pki/ca-trust/source/anchors/rootCA.crt',
+              '/usr/local/share/ca-certificates/rootCA.crt'
+          ) }}
+        mode: "0644"
       delegate_to: "{{ node_item }}"
       loop: "{{ groups['k8s_cluster'] + ['localhost'] }}"
       loop_control:
         loop_var: node_item
         label: "Distributing CA to node {{ node_item }}"
-
-    - name: "Local & Cluster | Update CA trust store"
-      become: true
-      ansible.builtin.command: update-ca-certificates --fresh
-      delegate_to: "{{ node_item }}"
-      loop: "{{ groups['k8s_cluster'] + ['localhost'] }}"
-      loop_control:
-        loop_var: node_item
-        label: "Updating CA trust store on {{ node_item }}"
+      notify: Update System Trust Store
 
   rescue:
     - name: Cleanup temporary certificate directory on failure
@@ -119,7 +122,7 @@
         path: "{{ cert_temp_dir.path }}"
         state: absent
       when: cert_temp_dir.path is defined
-      ignore_errors: true
+      failed_when: false
 
 - name: Deploy CA Server and Ingress
   block:
@@ -129,21 +132,25 @@
         state: directory
         suffix: _ca_configmap
       register: cm_temp_dir
+      check_mode: false
 
     - name: Write index.html from template
       ansible.builtin.template:
         src: _how-to-install-ca.html.j2
         dest: "{{ cm_temp_dir.path }}/index.html"
+        mode: "0644"
 
     - name: Write rootCA.pem to temporary file
       become: false
       ansible.builtin.copy:
         content: "{{ ca_content_b64['content'] | b64decode }}"
         dest: "{{ cm_temp_dir.path }}/rootCA.pem"
+        mode: "0644"
 
     - name: Create ConfigMap for CA distribution
       become: false
       ansible.builtin.shell: |
+        set -o pipefail
         kubectl create configmap ca-dist-config \
           --from-file={{ cm_temp_dir.path }}/rootCA.pem \
           --from-file={{ cm_temp_dir.path }}/index.html \
@@ -154,7 +161,7 @@
       changed_when: false
 
     - name: Create TLS secret from wildcard certificates
-      include_tasks: _create_tls_secret.yml
+      ansible.builtin.include_tasks: _create_tls_secret.yml
       vars:
         tls_secret_name: "{{ k8s_plugin_ca_tls_secret_name | default('mkcert-wildcard-tls') }}"
         tls_secret_namespace: "{{ k8s_plugin_ca_namespace | default('ca-system') }}"
@@ -164,6 +171,7 @@
     - name: Apply CA Server Manifests
       become: false
       ansible.builtin.shell: |
+        set -o pipefail
         cat <<EOF | kubectl apply -f -
         {{ lookup('template', '_caserver_manifest.yaml.j2') }}
         EOF
@@ -178,7 +186,7 @@
         path: "{{ cert_temp_dir.path }}"
         state: absent
       when: cert_temp_dir.path is defined
-      ignore_errors: true
+      failed_when: false
 
     - name: Cleanup temporary ConfigMap directory
       become: false
@@ -186,4 +194,4 @@
         path: "{{ cm_temp_dir.path }}"
         state: absent
       when: cm_temp_dir.path is defined
-      ignore_errors: true
+      failed_when: false

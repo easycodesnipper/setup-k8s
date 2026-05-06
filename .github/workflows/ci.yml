@@ -1,3 +1,4 @@
+---
 name: CI
 
 on:
@@ -5,7 +6,6 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-
 jobs:
   ansible-lint:
     runs-on: ubuntu-latest
@@ -42,7 +42,7 @@ jobs:
         run: ansible-playbook -i inventory.ini playbook-install.yml --syntax-check
 
       - name: Syntax check playbook-plugin.yml
-        run: ansible-playbook -i inventory.ini playbook-plugin.yml --syntax-check
+        run: ansible-playbook -i inventory.ini playbook-plugins.yml --syntax-check
 
       - name: Syntax check playbook-reset.yml
         run: ansible-playbook -i inventory.ini playbook-reset.yml --syntax-check

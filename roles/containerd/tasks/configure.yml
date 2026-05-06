@@ -10,6 +10,8 @@
 
 - name: Generate default containerd config if missing or SystemdCgroup not true
   become: true
+  when: cgroup_check.rc != 0
+
   block:
     - name: Ensure containerd configuration directory
       ansible.builtin.file:
@@ -18,7 +20,7 @@
         mode: "0755"
 
     - name: Generate current default containerd configuration
-      ansible.builtin.shell:
+      ansible.builtin.command:
         cmd: containerd config default
       register: containerd_default_config
       changed_when: false
@@ -28,18 +30,17 @@
       ansible.builtin.copy:
         content: "{{ containerd_default_config.stdout }}\n"
         dest: "{{ containerd_config_file }}"
+        mode: "0644"
         backup: true
       notify: Restart containerd
 
     - name: Ensure SystemdCgroup is set to true (preserve indentation, uncomment if needed)
       ansible.builtin.lineinfile:
         path: "{{ containerd_config_file }}"
-        regexp: '^( *)?#?\s*(SystemdCgroup = ).*'
-        line: '\1\2true'
+        regexp: "^( *)?#?\\s*(SystemdCgroup = ).*"
+        line: "\\1\\2true"
         backrefs: true
       notify: Restart containerd
-  when: cgroup_check.rc != 0
-
 - name: Enable/Disable containerd debugging
   block:
     - name: Ensure debug section exists in containerd config
@@ -50,11 +51,11 @@
         state: present
       notify: Restart containerd
 
-    - name: Set containerd debug level with exactly 2 spaces indentation and single quotes
+    - name: Set containerd debug level
       ansible.builtin.lineinfile:
         path: "{{ containerd_config_file }}"
-        regexp: '^\s*level\s*=\s*.*'
+        regexp: "^\\s*level\\s*=\\s*.*"
         line: "  level = '{{ 'debug' if (containerd_debug | default(false)) | bool else 'info' }}'"
-        insertafter: '^\[debug\]$'
+        insertafter: "^\\[debug\\]$"
         backup: true
       notify: Restart containerd

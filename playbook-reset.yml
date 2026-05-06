@@ -5,21 +5,21 @@
   become: true
   tasks:
     - name: Confirm Kubernetes cluster reset
+      when: k8s_reset_need_confirm | default(true) | bool
+
       block:
         - name: Prompt for cluster reset confirmation
           ansible.builtin.pause:
             prompt: "!!! WARNING !!! Type 'y' to confirm, any other key to abort."
           register: reset_confirm
-          run_once: true
+          run_once: true # noqa: run-once[task]
           delegate_to: localhost
 
         - name: Abort if not explicitly confirmed
           ansible.builtin.fail:
             msg: "Reset aborted by user."
-          run_once: true
+          run_once: true # noqa: run-once[task]
           when: reset_confirm.user_input | lower not in ['y', 'yes']
-      when: k8s_reset_need_confirm | default(true) | bool
-
     - name: 1. Core Kubeadm Reset
       ansible.builtin.command: kubeadm reset -f
       changed_when: true
@@ -55,6 +55,7 @@
 
     - name: 4. Purge All Network Interfaces (Bridges & Tunnels)
       ansible.builtin.shell: |
+        set -o pipefail
         # Flannel
         ip link delete cni0 || true
         ip link delete flannel.1 || true
@@ -68,13 +69,18 @@
         ip link show | grep veth | awk '{print $2}' | cut -d'@' -f1 | xargs -r -L1 ip link delete || true
         # Delete all Calico-specific veth interfaces
         ip link show | grep -E 'cali|tunl0|vxlan.calico' | awk '{print $2}' | cut -d'@' -f1 | sed 's/://g' | xargs -r -L1 ip link delete || true
+      args:
+        executable: /bin/bash
       changed_when: true
 
     - name: 5. Flush Routing Table (Remove Proto Bird / Stale Routes)
       ansible.builtin.shell: |
+        set -o pipefail
         # Specifically target routes added by Calico (Bird) or Cilium
         ip route show proto bird | awk '{print "ip route del " $1}' | sh || true
         ip route show | grep "blackhole" | awk '{print "ip route del " $2}' | sh || true
+      args:
+        executable: /bin/bash
       changed_when: true
 
     - name: 6. Reset Iptables & IPVS
@@ -86,13 +92,15 @@
 
     - name: 7. Clear BPF File System
       ansible.builtin.shell: |
+        set -o pipefail
         mount | grep "/sys/fs/bpf" | awk '{print $3}' | xargs -r umount || true
         rm -rf /sys/fs/bpf/* || true
+      args:
+        executable: /bin/bash
       changed_when: true
 
     - name: 8. Restart containerd
       ansible.builtin.systemd:
         name: containerd
         state: restarted
-        enabled: yes
-
+        enabled: true

@@ -1,1 +1,2 @@
+---
 k8s_wait_node_ready_timeout: "3m"

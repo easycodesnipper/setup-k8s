@@ -2,7 +2,7 @@
 # roles/plugin/tasks/_check_deps.yml
 
 - name: "Plugin {{ plugin_name }} | Check dependencies"
-  shell: |
+  ansible.builtin.shell: |
     for dep in {{ plugin_config['depends_on'] | default([]) | map('quote') | join(' ') }}; do
       if ! kubectl get ns "${dep}-system" --no-headers >/dev/null 2>&1; then
         echo "!!! ERROR: The dependency $dep is not installed, please install it in advance !!!"

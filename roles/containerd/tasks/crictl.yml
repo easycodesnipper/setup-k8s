@@ -13,7 +13,9 @@
       runtime-endpoint: {{ containerd_socket | default('unix:///run/containerd/containerd.sock') }}
       image-endpoint: {{ containerd_socket | default('unix:///run/containerd/containerd.sock') }}
     dest: "/etc/crictl.yaml"
+    mode: "0644"
     backup: true
 
 - name: Show crictl version
   ansible.builtin.command: crictl version
+  changed_when: false

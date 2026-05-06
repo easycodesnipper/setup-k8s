@@ -50,6 +50,7 @@
         prompt: "Do you want to post install Kubernetes plugins? (y/n)"
       register: plugin_confirm
       when:
+        - not ansible_check_mode
         - k8s_plugins_enabled_final
         - k8s_install_plugin_need_confirm | default(true) | bool
 

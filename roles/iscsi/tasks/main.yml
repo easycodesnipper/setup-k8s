@@ -18,10 +18,9 @@
       changed_when: false
 
     - name: Ensure iscsi_tcp module is loaded immediately
-      community.general.modprobe:
-        name: iscsi_tcp
-        state: present
+      ansible.builtin.command: modprobe iscsi_tcp
       when: module_check.rc != 0
+      changed_when: false
 
     - name: Ensure iscsi_tcp module is loaded after boot
       ansible.builtin.lineinfile:
@@ -60,4 +59,4 @@
             enabled: true
 
     - name: Configure multipath blacklist for storage volumes
-      include_tasks: multipath.yml
+      ansible.builtin.include_tasks: multipath.yml

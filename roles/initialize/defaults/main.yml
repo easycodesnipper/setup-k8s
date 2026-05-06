@@ -1,3 +1,4 @@
+---
 k8s_ignore_preflight_errors:
   - Mem
   - NumCPU

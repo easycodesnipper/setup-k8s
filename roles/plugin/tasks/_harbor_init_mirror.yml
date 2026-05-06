@@ -7,16 +7,19 @@
       ansible.builtin.uri:
         url: "https://{{ k8s_plugin_harbor_ingress_host | default('harbor.localdomain') }}/api/v2.0/ping"
         method: GET
-        validate_certs: no
+        validate_certs: false
         status_code: 200
       register: _api_check
       until: _api_check.status == 200
       retries: 20
       delay: 30
-  
+
     - name: "Harbor API | Retrieve admin password from secret"
       ansible.builtin.shell: |
+        set -o pipefail
         kubectl get secret {{ k8s_harbor_admin_password_secret_name | default('harbor-admin-password') }} -n {{ plugin_config.namespace }} -o jsonpath='{.data.HARBOR_ADMIN_PASSWORD}' | base64 -d
+      args:
+        executable: /bin/bash
       register: _current_pwd_cmd
       changed_when: false
 
@@ -31,9 +34,9 @@
         method: POST
         user: "admin"
         password: "{{ _api_password }}"
-        force_basic_auth: yes
+        force_basic_auth: true
         body_format: json
-        validate_certs: no
+        validate_certs: false
         body:
           name: "{{ mirror_item.name }}"
           url: "{{ mirror_item.url }}"
@@ -51,8 +54,8 @@
         method: GET
         user: "admin"
         password: "{{ _api_password }}"
-        force_basic_auth: yes
-        validate_certs: no
+        force_basic_auth: true
+        validate_certs: false
       register: _endpoint_query
 
     - name: "Harbor API | Create project for: {{ mirror_item.name }}"
@@ -61,9 +64,9 @@
         method: POST
         user: "admin"
         password: "{{ _api_password }}"
-        force_basic_auth: yes
+        force_basic_auth: true
         body_format: json
-        validate_certs: no
+        validate_certs: false
         body: |
           {
             "project_name": "{{ mirror_item.name }}",
@@ -78,3 +81,4 @@
       until: _project_creation_result.status == 201 or _project_creation_result.status == 409
       retries: 3
       delay: 10
+  when: not ansible_check_mode

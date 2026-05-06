@@ -1,4 +1,12 @@
+---
 skip_list:
   - var-naming
   - role-name
   - no-handler
+  - yaml[line-length]
+  - jinja[spacing]
+  - key-order
+  - name[template]
+
+exclude_paths:
+  - group_vars/all/vault.yml

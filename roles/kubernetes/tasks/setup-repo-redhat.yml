@@ -1,3 +1,4 @@
+---
 - name: Check if Docker repository file exists
   ansible.builtin.stat:
     path: "{{ k8s_yum_repo_file }}"

@@ -2,5 +2,5 @@
 # roles/plugin/tasks/_longhorn_iscsi.yml
 
 - name: Install iSCSI on {{ node_item }}
-  include_role:
+  ansible.builtin.include_role:
     name: iscsi

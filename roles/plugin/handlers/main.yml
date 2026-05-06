@@ -1,9 +1,25 @@
 ---
 # roles/plugin/handlers/main.yml
+
 - name: Restart ingress_ssh_tunnel
   become: true
   delegate_to: localhost
-  systemd:
+  ansible.builtin.systemd:
     name: ingress_ssh_tunnel
     state: restarted
-    daemon_reload: yes
+    daemon_reload: true
+
+- name: Update System Trust Store
+  become: true
+  # Use hostvars to check the OS family of the delegated host
+  ansible.builtin.command: >-
+    {{ (hostvars[node_item].ansible_os_family == 'RedHat') | ternary(
+        'update-ca-trust extract',
+        'update-ca-certificates --fresh'
+    ) }}
+  # Ensure the handler runs on the correct node
+  delegate_to: "{{ node_item }}"
+  loop: "{{ groups['k8s_cluster'] + ['localhost'] }}"
+  loop_control:
+    loop_var: node_item
+  changed_when: true

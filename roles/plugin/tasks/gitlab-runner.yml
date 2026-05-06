@@ -2,9 +2,10 @@
 # roles/plugin/tasks/gitlab-runner.yml
 
 - name: "Handle GitLab Runner Automatic Registration"
+  tags: plugin-gitlabrunner-install
   block:
     - name: "Wait for GitLab readiness endpoint (200 OK) via toolbox"
-      shell: |
+      ansible.builtin.shell: |
         kubectl exec -n {{ k8s_plugin_gitlab_namespace | default('gitlab-system') }} \
           deployment/gitlab-toolbox -- \
           curl -s -o /dev/null -w "%{http_code}" \
@@ -43,7 +44,7 @@
         validated_runner_token: "{{ gitlab_runner_token_output.stdout_lines | last | trim }}"
 
     - name: "Install Gitlab Runner"
-      include_tasks: _install_plugin.yml
+      ansible.builtin.include_tasks: _install_plugin.yml
       vars:
         k8s_plugin_gitlab_runner_token_value: "{{ validated_runner_token }}"
-  tags: plugin-gitlabrunner-install
+  when: not ansible_check_mode

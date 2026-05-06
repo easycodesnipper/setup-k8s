@@ -3,18 +3,29 @@
 
 - name: Configure registry mirrors if enabled
   become: true
+  when: containerd_registry_mirror_enabled | default(false) | bool
+  tags: containerd-setup-registry-mirror
   block:
     - name: Ensure containerd certs directory exists
       ansible.builtin.file:
         path: "{{ containerd_registry_mirror_config_path }}"
         state: directory
-        mode: '0755'
+        mode: "0755"
+
+    - name: Set config_path under [plugins.'io.containerd.cri.v1.images'.registry]
+      ansible.builtin.replace:
+        path: "{{ containerd_config_file }}"
+        after: "\\[plugins\\.'io\\.containerd\\.cri\\.v1\\.images'\\.registry\\]"
+        before: "^\\["
+        regexp: "(\\s+)config_path = .*"
+        replace: "\\1config_path = \"{{ containerd_registry_mirror_config_path }}\""
+      notify: Restart containerd
 
     - name: "Ensure registry-specific directories exist"
       ansible.builtin.file:
         path: "{{ containerd_registry_mirror_config_path }}/{{ mirror_item.key }}"
         state: directory
-        mode: '0755'
+        mode: "0755"
       loop: "{{ containerd_registry_mirrors | dict2items }}"
       loop_control:
         loop_var: mirror_item
@@ -24,24 +35,9 @@
       ansible.builtin.template:
         src: hosts.toml.j2
         dest: "{{ containerd_registry_mirror_config_path }}/{{ mirror_item.key }}/hosts.toml"
-        mode: '0644'
+        mode: "0644"
       loop: "{{ containerd_registry_mirrors | dict2items }}"
       loop_control:
         loop_var: mirror_item
         label: "Configuring mirror for {{ mirror_item.key }}"
       notify: Restart containerd
-
-    - name: Remove existing config_path lines (to avoid conflicts)
-      ansible.builtin.lineinfile:
-        path: "{{ containerd_config_file }}"
-        regexp: '^[[:space:]]*config_path = .*'
-        state: absent
-      notify: Restart containerd
-
-    - name: Set config_path under cri.images.registry
-      ansible.builtin.shell:
-        cmd: |
-          sed -i.bak "/^\s*\[plugins\.'io\.containerd\.cri\.v1\.images'\.registry\]/,/^\s*\[/ s/^\(\s*config_path\s*=\s*\).*/\1\"\/etc\/containerd\/certs.d\"/" {{ containerd_config_file }}
-      notify: Restart containerd
-  when: containerd_registry_mirror_enabled | default(false) | bool
-  tags: containerd-setup-registry-mirror

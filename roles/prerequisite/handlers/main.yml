@@ -1,6 +1,6 @@
 ---
 - name: Remount filesystems
-  ansible.builtin.command: mount -a  # noqa: command-instead-of-module
+  ansible.builtin.command: mount -a # noqa: command-instead-of-module
   changed_when: false
   register: mount_result
   failed_when: mount_result.rc != 0

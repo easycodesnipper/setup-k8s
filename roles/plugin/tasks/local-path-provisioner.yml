@@ -2,7 +2,7 @@
 # roles/plugin/tasks/local-path-provisioner.yml
 
 - name: Install Local Path Provisioner
-  include_tasks: _install_plugin.yml
+  ansible.builtin.include_tasks: _install_plugin.yml
   vars:
     plugin_name: local-path-provisioner
     plugin_config: "{{ k8s_plugins[plugin_name] }}"

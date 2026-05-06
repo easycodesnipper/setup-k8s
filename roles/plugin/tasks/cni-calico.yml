@@ -2,9 +2,8 @@
 # roles/plugin/tasks/cni-calico.yml
 
 - name: Install CNI Calico
-  include_tasks: _install_plugin.yml
+  ansible.builtin.include_tasks: _install_plugin.yml
   vars:
     plugin_name: cni-calico
     plugin_config: "{{ k8s_plugins[plugin_name] }}"
   tags: plugin-calico
-

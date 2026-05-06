@@ -2,9 +2,9 @@
 # playbook-devops.yml
 - name: "Deploy DevOps tools on Kubernetes"
   hosts: controllers
-  gather_facts: yes
+  gather_facts: true
   vars:
-    k8s_plugins_only: 
+    k8s_plugins_only:
       - gitlab
       - openproject
   roles:

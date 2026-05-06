@@ -4,7 +4,8 @@
 - name: "Fetch Ingress Mappings"
   ansible.builtin.command: >-
     kubectl get ingress -A
-    -o jsonpath='{range .items[?(@.spec.ingressClassName=="'{{ k8s_ingress_class | default("traefik") }}'")]}{.status.loadBalancer.ingress[0].ip}{" "}{range .spec.rules[*]}{.host}{" "}{end}{"\n"}{end}'
+    -o jsonpath='{range .items[?(@.spec.ingressClassName=="'{{ k8s_ingress_class | default("traefik") }}'")]}{.status.loadBalancer.ingress[0].ip}{" "}{range .spec.rules[*]}{.host}{"
+    "}{end}{"\n"}{end}'
   register: _traefik_raw
   run_once: true
   changed_when: false
@@ -42,4 +43,3 @@
   loop_control:
     loop_var: node_item
     label: "Mapping on {{ node_item }}"
-

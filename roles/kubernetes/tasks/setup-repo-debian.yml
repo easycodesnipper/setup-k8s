@@ -11,13 +11,13 @@
       ansible.builtin.file:
         path: /etc/apt/keyrings
         state: directory
-        mode: '0755'
+        mode: "0755"
 
     - name: Download Kubernetes GPG key (force fresh copy)
       ansible.builtin.get_url:
         url: "https://pkgs.k8s.io/core:/stable:/v{{ k8s_major_minor }}/deb/Release.key"
         dest: /tmp/kubernetes-Release.key
-        mode: '0644'
+        mode: "0644"
       register: key_download
       until: key_download is success
       retries: 5
@@ -37,8 +37,11 @@
     - name: Verify GPG key fingerprint
       ansible.builtin.shell:
         cmd: |
+          set -o pipefail
           gpg --show-keys --with-fingerprint /etc/apt/keyrings/kubernetes-apt-keyring.gpg | \
           awk '/pub / {getline; gsub(/ /,"",$0); print}'
+      args:
+        executable: /bin/bash
       register: key_fingerprint
       changed_when: false
       failed_when: k8s_gpg_fingerprint not in key_fingerprint.stdout

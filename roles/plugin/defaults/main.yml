@@ -5,22 +5,24 @@
 k8s_plugin_manifest_proxy_safe: "{{ (k8s_plugin_manifest_proxy | default('')) | regex_replace('([^/])$', '\\1/') }}"
 
 k8s_plugins:
-################################### cni-flannel ###################################
+  # ################################## cni-flannel ###################################
   # Description: Simple and lightweight CNI plugin that provides an overlay network for Kubernetes.
   cni-flannel:
     enabled: "{{ k8s_plugin_flannel_enabled | default(false) | bool }}"
     namespace: "kube-system"
-    manifest: "{{ k8s_plugin_manifest_proxy_safe | default('') }}https://github.com/flannel-io/flannel/releases/download/v{{ k8s_plugin_flannel_version | default('0.27.4') }}/kube-flannel.yml"
+    manifest: "{{ k8s_plugin_manifest_proxy_safe | default('') }}https://github.com/flannel-io/flannel/releases/download/v{{ k8s_plugin_flannel_version | default('0.27.4')
+      }}/kube-flannel.yml"
     wait:
       labels: "k8s-app=flannel"
 
-################################### cni-calico ###################################
+  ################################### cni-calico ###################################
   # Description: High-performance CNI plugin with network policy enforcement and advanced routing.
   # Validate if patch works: kubectl get daemonset calico-node -n kube-system -o json | jq '.spec.template.spec.containers[0].env[] | select(.name=="CALICO_IPV4POOL_CIDR")'
   cni-calico:
     enabled: "{{ k8s_plugin_calico_enabled | default(false) | bool }}"
     namespace: "kube-system"
-    manifest: "{{ k8s_plugin_manifest_proxy_safe | default('') }}https://raw.githubusercontent.com/projectcalico/calico/v{{ k8s_plugin_calico_version | default('3.31.1') }}/manifests/calico.yaml"
+    manifest: "{{ k8s_plugin_manifest_proxy_safe | default('') }}https://raw.githubusercontent.com/projectcalico/calico/v{{ k8s_plugin_calico_version | default('3.31.1')
+      }}/manifests/calico.yaml"
     patch:
       type: strategic
       resource: "daemonset/calico-node"
@@ -29,14 +31,14 @@ k8s_plugins:
           template:
             spec:
               containers:
-              - name: calico-node
-                env:
-                - name: CALICO_IPV4POOL_CIDR
-                  value: "{{ k8s_pod_subnet | default('10.244.0.0/16') }}"
+                - name: calico-node
+                  env:
+                    - name: CALICO_IPV4POOL_CIDR
+                      value: "{{ k8s_pod_subnet | default('10.244.0.0/16') }}"
     wait:
       labels: "k8s-app=calico"
 
-################################### cni-cilium ###################################
+  ################################### cni-cilium ###################################
   # Description: eBPF-based CNI plugin providing scalable networking, security, and observability.
   # Show latest N available versions: helm search repo cilium/cilium --versions |head -n 4
   cni-cilium:
@@ -67,16 +69,19 @@ k8s_plugins:
     wait:
       labels: "k8s-app=cilium"
 
-################################### metallb ###################################
+  ################################### metallb ###################################
   # Description: Load-balancer implementation for bare-metal Kubernetes clusters working on Layer 4
   metallb:
     enabled: "{{ k8s_plugin_metallb_enabled | default(true) | bool }}"
     namespace: "{{ k8s_plugin_metallb_namespace | default('metallb-system') }}"
-    manifest: "{{ k8s_plugin_manifest_proxy_safe | default('') }}https://raw.githubusercontent.com/metallb/metallb/v{{ k8s_plugin_metallb_version | default('0.15.3') }}/config/manifests/metallb-native.yaml"
+    manifest: "{{ k8s_plugin_manifest_proxy_safe | default('') }}https://raw.githubusercontent.com/metallb/metallb/v{{ k8s_plugin_metallb_version | default('0.15.3')
+      }}/config/manifests/metallb-native.yaml"
     wait:
-      labels: 
-        - "app=metallb"
-        - "component=controller"
+      enabled: true
+      resource: deployment
+      labels: "app=metallb,component=controller"
+      condition: "condition=available"
+      timeout: "5m"
     configuration:
       data: |
         apiVersion: metallb.io/v1beta1
@@ -106,28 +111,26 @@ k8s_plugins:
           - {{ k8s_plugin_metallb_default_ipaddresspool_name  | default('default-pool') }}
           - {{ k8s_plugin_metallb_traefik_ipaddresspool_name  | default('traefik-pool') }}
 
-################################### local-path-provisioner ###################################
+  ################################### local-path-provisioner ###################################
   # Description: Dynamically provisions persistent local storage using host paths.
   # Validate if patch works: kubectl get configmap local-path-config -n local-path-storage -o json | jq '.data["config.json"] | fromjson'
   local-path-provisioner:
     enabled: "{{ k8s_plugin_local_path_provisioner_enabled | default(false) | bool }}"
     namespace: "local-path-storage"
-    manifest: "{{ k8s_plugin_manifest_proxy_safe | default('') }}https://raw.githubusercontent.com/rancher/local-path-provisioner/v{{ k8s_plugin_local_path_provisioner_version | default('0.0.35') }}/deploy/local-path-storage.yaml"
+    manifest: "{{ k8s_plugin_manifest_proxy_safe | default('') }}https://raw.githubusercontent.com/rancher/local-path-provisioner/v{{ k8s_plugin_local_path_provisioner_version
+      | default('0.0.35') }}/deploy/local-path-storage.yaml"
     patch:
       type: json
       resource: "configmap/local-path-config"
       data:
-        [
-          {
-            "op": "replace",
-            "path": "/data/config.json",
-            "value": "{{ {'nodePathMap': [{'node': 'DEFAULT_PATH_FOR_NON_LISTED_NODES', 'paths': [k8s_plugin_local_path_provisioner_default_path | default('/var/local/rancher/local-path')]}]} | to_json }}"
-          }
-        ]
+        - "op": "replace"
+          "path": "/data/config.json"
+          "value": "{{ {'nodePathMap': [{'node': 'DEFAULT_PATH_FOR_NON_LISTED_NODES', 'paths': [k8s_plugin_local_path_provisioner_default_path | default('/var/local/rancher/local-path')]}]}
+            | to_json }}"
     wait:
       labels: "app=local-path-provisioner"
 
-################################### traefik ###################################
+  ################################### traefik ###################################
   # Description: Cloud-native ingress controller and edge router with automatic HTTPS.
   # Show latest N available versions: helm search repo traefik/traefik --versions |head -n 4
   # Show supported values: helm show values traefik/traefik --version 39.0.7 | sed -e '/^\s*#/d' -e '/^\s*$/d'
@@ -146,13 +149,13 @@ k8s_plugins:
     ingress:
       enabled: true
 
-################################### longhorn ###################################
+  ################################### longhorn ###################################
   # Description: Distributed block storage system with snapshots, backups, and DR.
   # Show latest N available versions: helm search repo longhorn/longhorn --versions |head -n 4
   # Show supported values: helm show values longhorn/longhorn --version 1.11.1 | sed -e '/^\s*#/d' -e '/^\s*$/d'
   longhorn:
     enabled: "{{ k8s_plugin_longhorn_enabled | default(true) | bool }}"
-    depends_on: ['traefik']
+    depends_on: ["traefik"]
     namespace: "{{ k8s_plugin_longhorn_namespace | default('longhorn-system') }}"
     helm:
       repository:
@@ -168,14 +171,14 @@ k8s_plugins:
         enabled: "{{ k8s_plugin_longhorn_ingress_tls_enabled | default(true) | bool }}"
         secret_name: "{{ k8s_plugin_longhorn_ingress_tls_secret_name | default('mkcert-wildcard-tls') }}"
 
-################################### harbor ###################################
+  ################################### harbor ###################################
   # Description: Cloud-native registry that stores, signs, and scans content.
   # Show latest N available versions: helm search repo harbor/harbor --versions |head -n 4
   # Show supported values: helm show values harbor/harbor --version 1.18.3 | sed -e '/^\s*#/d' -e '/^\s*$/d'
   # Get admin password: kubectl get secret harbor-admin-password -n harbor-system -o jsonpath='{.data.HARBOR_ADMIN_PASSWORD}' | base64 -d && echo
   harbor:
     enabled: "{{ k8s_plugin_harbor_enabled | default(true) | bool }}"
-    depends_on: ['traefik','longhorn']
+    depends_on: ["traefik", "longhorn"]
     namespace: "{{ k8s_plugin_harbor_namespace | default('harbor-system') }}"
     helm:
       repository:
@@ -191,7 +194,7 @@ k8s_plugins:
         enabled: "{{ k8s_plugin_harbor_ingress_tls_enabled | default(true) | bool }}"
         secret_name: "{{ k8s_plugin_harbor_ingress_tls_secret_name | default('mkcert-wildcard-tls') }}"
 
-################################### headlamp ###################################
+  ################################### headlamp ###################################
   # Description: Extensible Kubernetes web UI with multi-cluster support to replace legacy kubernetes-dashboard.
   # Show latest N available versions: helm search repo headlamp/headlamp --versions |head -n 4
   # Show supported values: helm show values headlamp/headlamp --version 0.41.0 | sed -e '/^\s*#/d' -e '/^\s*$/d'
@@ -199,7 +202,7 @@ k8s_plugins:
   # How to get token: kubectl get secret -n headlamp-system headlamp-user-token -o jsonpath='{.data.token}' | base64 --decode && echo
   headlamp:
     enabled: "{{ k8s_plugin_headlamp_enabled | default(true) | bool }}"
-    depends_on: ['traefik','longhorn']
+    depends_on: ["traefik", "longhorn"]
     namespace: "headlamp-system"
     helm:
       repository:
@@ -244,28 +247,22 @@ k8s_plugins:
         enabled: "{{ k8s_plugin_headlamp_ingress_tls_enabled | default(true) | bool }}"
         secret_name: "{{ k8s_plugin_headlamp_ingress_tls_secret_name | default('mkcert-wildcard-tls') }}"
 
-################################### metricsserver ###################################
+  ################################### metricsserver ###################################
   # Description: Cluster-wide aggregator of resource usage metrics (CPU, memory) for HPA and kubectl top.
   # Validate if patch works: kubectl get deployment metrics-server -n kube-system -o json | jq '.spec.template.spec.containers[0].args'
   metrics-server:
     enabled: "{{ k8s_plugin_metricsserver_enabled | default(false) | bool }}"
     namespace: "kube-system"
-    manifest: "{{ k8s_plugin_manifest_proxy_safe | default('') }}https://github.com/kubernetes-sigs/metrics-server/releases/download/v{{ k8s_plugin_metricsserver_version | default('0.8.1') }}/components.yaml"
+    manifest: "{{ k8s_plugin_manifest_proxy_safe | default('') }}https://github.com/kubernetes-sigs/metrics-server/releases/download/v{{ k8s_plugin_metricsserver_version
+      | default('0.8.1') }}/components.yaml"
     patch:
       type: json
       resource: "deployment/metrics-server"
-      data:
-        [
-          {
-            "op": "add",
-            "path": "/spec/template/spec/containers/0/args/-",
-            "value": "--kubelet-insecure-tls"
-          }
-        ]
+      data: [{ "op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--kubelet-insecure-tls" }]
     wait:
       labels: "k8s-app=metrics-server"
 
-################################### gitlab ###################################
+  ################################### gitlab ###################################
   # Description: Full DevOps platform providing Git repositories, CI/CD pipelines
   # Show available version: helm search repo gitlab-jh/gitlab --versions |head -n 4
   # Show supported values: helm show values gitlab-jh/gitlab --version 9.11.1 | sed -e '/^\s*#/d' -e '/^\s*$/d'
@@ -274,7 +271,7 @@ k8s_plugins:
   # Get password of DB user `postgres` in postgresql: kubectl get secret -n gitlab-system gitlab-postgresql-password -o jsonpath="{.data.postgresql-postgres-password}" | base64 -d && echo
   gitlab:
     enabled: "{{ k8s_plugin_gitlab_enabled | default(true) }}"
-    depends_on: ['traefik','longhorn']
+    depends_on: ["traefik", "longhorn"]
     namespace: "{{ k8s_plugin_gitlab_namespace | default('gitlab-system') }}"
     helm:
       repository:
@@ -290,14 +287,14 @@ k8s_plugins:
         enabled: "{{ k8s_plugin_gitlab_ingress_tls_enabled | default(true) | bool }}"
         secret_name: "{{ k8s_plugin_gitlab_ingress_tls_secret_name | default('mkcert-wildcard-tls') }}"
 
-################################### gitlab-runner ###################################
+  ################################### gitlab-runner ###################################
   # Description: Full DevOps platform providing Gitlab CI/CD pipelines
   # Show available version: helm search repo gitlab-jh/gitlab-runner --versions |head -n 4
   # Show supported values: helm show values gitlab-jh/gitlab-runner --version 0.88.1 | sed -e '/^\s*#/d' -e '/^\s*$/d'
   # Get runner token: kubectl get secret -n gitlab-system gitlab-runner -o jsonpath='{.data.runner-token}' | base64 -d && echo
   gitlab-runner:
     enabled: "{{ k8s_plugin_gitlab_runner_enabled | default(true) }}"
-    depends_on: ['gitlab']
+    depends_on: ["gitlab"]
     namespace: "{{ k8s_plugin_gitlab_namespace | default('gitlab-system') }}" # Reuse gitlab namespace
     helm:
       repository:
@@ -309,13 +306,13 @@ k8s_plugins:
     wait:
       labels: "app=gitlab-runner"
 
-################################### openproject ###################################
+  ################################### openproject ###################################
   # Description: Open-source project management tool (alternative to Jira)
   # Show latest N available versions: helm search repo openproject/openproject --versions |head -n 4
   # Show supported values: helm show values openproject/openproject --version 13.5.1 | sed -e '/^\s*#/d' -e '/^\s*$/d'
   openproject:
     enabled: "{{ k8s_plugin_openproject_enabled | default(true) }}"
-    depends_on: ['traefik','longhorn']
+    depends_on: ["traefik", "longhorn"]
     namespace: "{{ k8s_plugin_openproject_namespace | default('openproject-system') }}"
     helm:
       repository:

@@ -2,5 +2,5 @@
 # roles/plugin/tasks/metrics-server.yml
 
 - name: Install Metrics Server
-  include_tasks: _install_plugin.yml
+  ansible.builtin.include_tasks: _install_plugin.yml
   tags: plugin-metricserver-install

@@ -8,6 +8,7 @@
   vars:
     lb_ips: "{{ k8s_plugin_ingress_loadbalancer_ips | default(['10.17.3.222']) }}"
   when: lb_ips | length > 0
+  tags: tunnel-setup
   block:
     - name: Detect existing SSH private key on the target host
       ansible.builtin.shell: |
@@ -21,7 +22,7 @@
 
     # - name: Debug key detection results
     #   ansible.builtin.debug:
-    #     msg: 
+    #     msg:
     #       - "Detected Key: {{ key_detection.stdout }}"
     #       - "System User: {{ lookup('env', 'USER') }}"
     #       - "ansible_env.USER: {{ ansible_env.USER }}"
@@ -30,27 +31,25 @@
       ansible.builtin.template:
         src: _ingress_ssh_tunnel.sh.j2
         dest: /usr/local/bin/ingress_ssh_tunnel.sh
-        mode: '0755'
+        mode: "0755"
       vars:
         vars:
         bind_addr: "{{ '127.0.0.1' if k8s_in_production | default(true) | bool else '0.0.0.0' }}"
         ssh_user: "{{ lookup('env', 'USER') }}"
         ssh_user_key: "{{ key_detection.stdout }}"
-  
+
     - name: Install systemd service file
       ansible.builtin.template:
         src: _ingress_ssh_tunnel.service.j2
         dest: /etc/systemd/system/ingress_ssh_tunnel.service
-        mode: '0644'
+        mode: "0644"
       vars:
-        service_user: "{{ k8s_ingress_ssh_tunnel_service_user | default('root')}}"
+        service_user: "{{ k8s_ingress_ssh_tunnel_service_user | default('root') }}"
       notify: Restart ingress_ssh_tunnel
 
     - name: Enable and start service
       ansible.builtin.systemd:
         name: ingress_ssh_tunnel
-        enabled: yes
-        daemon_reload: yes
+        enabled: true
+        daemon_reload: true
         state: started
-  
-  tags: tunnel-setup

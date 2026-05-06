@@ -2,31 +2,32 @@
 # roles/plugin/tasks/gitlab.yml
 
 - name: "Create secret if not exists"
+  tags: plugin-gitlab-preinstall
+
   block:
     - name: "Check if secret exists"
-      command: kubectl get secret {{ k8s_plugin_gitlab_smtp_password_secret_name | default('gitlab-smtp-password') }} -n {{ plugin_config.namespace }} --ignore-not-found
+      ansible.builtin.command: kubectl get secret {{ k8s_plugin_gitlab_smtp_password_secret_name | default('gitlab-smtp-password') }} -n {{
+        plugin_config.namespace }} --ignore-not-found
       register: _secret_check
       changed_when: false
 
-    - block:
-      - name: Build secret data dictionary
-        ansible.builtin.set_fact:
-          _secret_data: >-
-            {%- set data = {} -%}
-            {%- set _ = data.update({ (k8s_plugin_gitlab_smtp_password_key | default('password')): k8s_plugin_gitlab_smtp_auth_password }) -%}
-            {{ data }}
-
-      - name: "Create secret"
-        include_tasks: _create_secret.yml
-        vars:
-          k8s_secret_namespace: "{{ plugin_config.namespace }}"
-          k8s_secret_name: "{{ k8s_plugin_gitlab_smtp_password_secret_name | default('gitlab-smtp-password') }}"
-          k8s_secret_data: "{{ _secret_data }}"
+    - name: "Build and create secret"
       when: _secret_check.stdout == ""
-  tags: plugin-gitlab-preinstall
+      block:
+        - name: Build secret data dictionary
+          ansible.builtin.set_fact:
+            _secret_data: >-
+              {%- set data = {} -%} {%- set _ = data.update({(k8s_plugin_gitlab_smtp_password_key | default('password')): k8s_plugin_gitlab_smtp_auth_password}) -%}
+              {{ data }}
 
+        - ansible.builtin.include_tasks: _create_secret.yml
+          vars:
+            k8s_secret_namespace: "{{ plugin_config.namespace }}"
+            k8s_secret_name: "{{ k8s_plugin_gitlab_smtp_password_secret_name | default('gitlab-smtp-password') }}"
+            k8s_secret_data: "{{ _secret_data }}"
+          name: "Create secret"
 - name: "Install DevOps gitlab"
-  include_tasks: _install_plugin.yml
+  ansible.builtin.include_tasks: _install_plugin.yml
   tags: plugin-gitlab-install
 
 # ------------------------------------------------------------------------------
@@ -36,9 +37,12 @@
   block:
     - name: "Wait for GitLab database to accept connections"
       ansible.builtin.shell: |
+        set -o pipefail
         kubectl exec -n {{ k8s_plugin_gitlab_namespace | default('gitlab-system') }} \
           deployment/gitlab-toolbox -- \
           gitlab-rails runner "puts ActiveRecord::Base.connection.active?" 2>/dev/null | grep -q true
+      args:
+        executable: /bin/bash
       register: db_check
       retries: 30
       delay: 10
@@ -73,7 +77,7 @@
         validated_runner_token: "{{ gitlab_runner_token_output.stdout_lines | last | trim }}"
 
     - name: "Re-run GitLab installation to enable Runner with the new token"
-      include_tasks: _install_plugin.yml
+      ansible.builtin.include_tasks: _install_plugin.yml
       vars:
         k8s_plugin_gitlab_runner_token_value: "{{ validated_runner_token }}"
 

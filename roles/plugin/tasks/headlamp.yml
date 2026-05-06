@@ -2,5 +2,5 @@
 # roles/plugin/tasks/headlamp.yml
 
 - name: Install Headlamp
-  include_tasks: _install_plugin.yml
+  ansible.builtin.include_tasks: _install_plugin.yml
   tags: plugin-headlamp-install

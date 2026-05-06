@@ -4,7 +4,7 @@
 docker_repo_base_url: "https://mirrors.huaweicloud.com/docker-ce"
 
 containerd_debug: true
-containerd_registry_mirror_enabled: false
+containerd_registry_mirror_enabled: true
 
 ### Common Variables
 k8s_version: "1.34.2"
@@ -24,6 +24,3 @@ k8s_plugin_harbor_mirrors:
 
 # Vault Variables
 k8s_plugin_gitlab_smtp_auth_password: "{{ vault_k8s_plugin_gitlab_smtp_auth_password }}"
-
-# Post-install gitlab-runner
-# k8s_plugin_gitlab_runner_install: true

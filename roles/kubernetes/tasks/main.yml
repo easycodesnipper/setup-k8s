@@ -86,16 +86,16 @@
           nameserver {{ dns }}
           {% endfor %}
           options edns0 trust-ad
-        mode: '0644'
+        mode: "0644"
       when: k8s_use_dedicated_dns | default('false') | bool
 
     - name: Configure Kubelet to use expected resolv.conf file
       ansible.builtin.lineinfile:
         path: "{{ k8s_kubelet_config_path[ansible_facts['os_family']] }}"
-        regexp: '^KUBELET_EXTRA_ARGS='
+        regexp: "^KUBELET_EXTRA_ARGS="
         line: 'KUBELET_EXTRA_ARGS="--resolv-conf={{ k8s_resolv_conf | trim }}"'
         create: true
-        mode: '0644'
+        mode: "0644"
 
 - name: Ensure kubelet is running and enabled
   ansible.builtin.systemd:

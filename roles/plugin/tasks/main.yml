@@ -2,13 +2,14 @@
 # roles/plugin/tasks/main.yml
 
 - name: "Install plugins"
+  tags: "plugins-install"
   block:
     - name: Determine raw input for k8s_plugins_only
-      set_fact:
+      ansible.builtin.set_fact:
         _raw_input: "{{ k8s_plugins_only | default('') if k8s_plugins_only is defined else '' }}"
 
     - name: Convert raw input to list (handles both string and list)
-      set_fact:
+      ansible.builtin.set_fact:
         _as_list: >-
           {{
             [] if _raw_input == '' or _raw_input | length == 0
@@ -18,7 +19,7 @@
           }}
 
     - name: Get plugins enabled via k8s_plugins[].enabled
-      set_fact:
+      ansible.builtin.set_fact:
         _enabled_plugins: >-
           {{
             k8s_plugins | dict2items
@@ -28,7 +29,7 @@
           }}
 
     - name: Filter plugins by explicit names (k8s_plugins_only)
-      set_fact:
+      ansible.builtin.set_fact:
         _filtered_plugins: >-
           {{
             k8s_plugins | dict2items
@@ -37,22 +38,21 @@
           }}
 
     - name: Decide which plugins to install
-      set_fact:
+      ansible.builtin.set_fact:
         _plugins_to_install: "{{ _filtered_plugins if (_as_list | length > 0) else _enabled_plugins }}"
 
     - name: Show plugins to be installed
-      debug:
+      ansible.builtin.debug:
         msg: "Plugins to install: {{ _plugins_to_install | map(attribute='key') | list }}"
 
     - name: Fail if no plugins are defined for installation
-      fail:
+      ansible.builtin.fail:
         msg: >
-          No plugins were identified for installation. 
-          Check if name is correctly aligned with name in defaults.xml or if plugins are enabled.
+          No plugins were identified for installation.  Check if name is correctly aligned with name in defaults.xml or if plugins are enabled.
       when: _plugins_to_install | length == 0
 
     - name: Install Kubernetes plugins
-      include_tasks: "{{ item.key }}.yml"
+      ansible.builtin.include_tasks: "{{ item.key }}.yml"
       vars:
         plugin_name: "{{ item.key }}"
         plugin_config: "{{ item.value }}"
@@ -60,4 +60,3 @@
       loop_control:
         label: "Plugin: {{ item.key }}"
       when: k8s_plugins is mapping
-  tags: "plugins-install"

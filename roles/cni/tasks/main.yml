@@ -1,6 +1,6 @@
 ---
 - name: Install CNI plugin
-  include_role:
+  ansible.builtin.include_role:
     name: plugin
     tasks_from: cni-{{ k8s_cni | default('flannel') }}
 
