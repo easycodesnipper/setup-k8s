@@ -47,7 +47,16 @@
   tasks:
     - name: Prompt for plugin installation confirmation
       ansible.builtin.pause:
-        prompt: "Do you want to post install Kubernetes plugins? (y/n)"
+        prompt: |
+          #########################################################
+          ###                                                   ###
+          ###                  Information                      ###
+          ###                                                   ###
+          ###  You are about to install Kubernetes plugins.     ###
+          ###                                                   ###
+          ###  Type 'y' to confirm, any other key to abort.     ###
+          ###                                                   ###
+          #########################################################
       register: plugin_confirm
       when:
         - not ansible_check_mode

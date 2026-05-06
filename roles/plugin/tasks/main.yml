@@ -41,15 +41,34 @@
       ansible.builtin.set_fact:
         _plugins_to_install: "{{ _filtered_plugins if (_as_list | length > 0) else _enabled_plugins }}"
 
-    - name: Show plugins to be installed
-      ansible.builtin.debug:
-        msg: "Plugins to install: {{ _plugins_to_install | map(attribute='key') | list }}"
-
-    - name: Fail if no plugins are defined for installation
-      ansible.builtin.fail:
-        msg: >
-          No plugins were identified for installation.  Check if name is correctly aligned with name in defaults.xml or if plugins are enabled.
+    - name: Terminate if no plugins were identified for installation
+      ansible.builtin.meta: end_play
       when: _plugins_to_install | length == 0
+
+    - name: Confirm plugins installation
+      block:
+        - name: Show plugins and request confirmation
+          ansible.builtin.pause:
+            prompt: |
+              ======================================================================
+                                      INSTALLATION SUMMARY
+              ======================================================================
+              The following Kubernetes plugins are scheduled for installation:
+
+              {% for item in _plugins_to_install %}
+                • {{ item.key }}
+              {% endfor %}
+
+              WARNING: This will modify your cluster configuration.
+              Type 'y' to continue, or any other key to abort.
+              ======================================================================
+          register: _pause_status
+
+        - name: Terminate if not confirmed
+          ansible.builtin.meta: end_play
+          when: _pause_status.user_input | default('y') | lower != 'y'
+
+      when: not ansible_check_mode
 
     - name: Install Kubernetes plugins
       ansible.builtin.include_tasks: "{{ item.key }}.yml"

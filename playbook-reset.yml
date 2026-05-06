@@ -1,25 +1,35 @@
 ---
 # playbook-reset.yml
+
 - name: Reset Kubernetes Cluster & Network Stack
   hosts: k8s_cluster
   become: true
   tasks:
     - name: Confirm Kubernetes cluster reset
-      when: k8s_reset_need_confirm | default(true) | bool
-
       block:
-        - name: Prompt for cluster reset confirmation
+        - name: Multi-stage Cluster Reset Confirmation
           ansible.builtin.pause:
-            prompt: "!!! WARNING !!! Type 'y' to confirm, any other key to abort."
-          register: reset_confirm
+            prompt: |
+              [ CONFIRMATION STEP {{ item }} of 3 ]
+              #########################################################
+              ###          !!!  FINAL WARNING  !!!                  ###
+              ###  Type 'y' to continue, any other key to abort.    ###
+              #########################################################
+          register: current_pause
+          loop: "{{ range(1, 4) | list }}"
+          loop_control:
+            break_when: "current_pause.user_input | lower != 'y'"
           run_once: true # noqa: run-once[task]
           delegate_to: localhost
 
-        - name: Abort if not explicitly confirmed
-          ansible.builtin.fail:
-            msg: "Reset aborted by user."
-          run_once: true # noqa: run-once[task]
-          when: reset_confirm.user_input | lower not in ['y', 'yes']
+        - name: Abort if without full confirmation
+          ansible.builtin.meta: end_play
+          when: "current_pause.results | last | attr('user_input') | default('') | lower != 'y'"
+
+      when:
+        - not ansible_check_mode
+        - k8s_reset_need_confirm | default(true) | bool
+
     - name: 1. Core Kubeadm Reset
       ansible.builtin.command: kubeadm reset -f
       changed_when: true
@@ -50,7 +60,7 @@
         - /etc/kubernetes
         - /var/lib/kubelet
         - /var/lib/etcd
-        - "{{ ansible_env.HOME }}/.kube"
+        - "{{ ansible_facts['env']['HOME'] }}/.kube"
       failed_when: false
 
     - name: 4. Purge All Network Interfaces (Bridges & Tunnels)

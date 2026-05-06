@@ -205,19 +205,17 @@
 
 - name: "Plugin {{ plugin_name }} | Wait for Resource Ready"
   vars:
-    _selector: >-
-      {{ plugin_config.wait.labels | join(',') if plugin_config.wait.labels is sequence
-         else plugin_config.wait.labels }}
+    _wait_dict: "{{ plugin_config.wait | default({}) }}"
+    _labels: "{{ _wait_dict.labels | default('') }}"
+    _selector: "{{ _labels | join(',') if _labels is sequence else _labels }}"
+    _raw_condition: "{{ _wait_dict.condition | default('Ready') }}"
+    _condition: "{{ _raw_condition if 'condition=' in _raw_condition else 'condition=' + _raw_condition }}"
+    _resource: "{{ _wait_dict.resource | default('pod') }}"
   ansible.builtin.command: >
-    kubectl wait --for={{ plugin_config.wait.condition | default('condition=Ready') }} {{ plugin_config.wait.resource | default('pod') }}
-    -n {{ plugin_config.namespace | default('default') }}
-    --selector="{{ _selector }}"
-    --timeout={{ plugin_config.wait.timeout | default('5m') }}
+    kubectl wait --for={{ _condition }} {{ _resource }} -n {{ plugin_config.namespace | default('default') }} {% if _selector | length > 0 %} --selector="{{ _selector }}"{% endif %} --timeout={{ _wait_dict.timeout | default('5m') }}
   when:
-    - plugin_config['wait'] is defined
-    - plugin_config['wait'] is mapping
-    - plugin_config['wait']['enabled'] | default(true) | bool
-    - plugin_config['wait']['labels'] is defined
+    - plugin_config.wait is defined
+    - plugin_config.wait.enabled | default(true) | bool
   failed_when: false
   changed_when: false
   tags: plugin-wait-ready

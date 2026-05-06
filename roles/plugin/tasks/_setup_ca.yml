@@ -98,12 +98,21 @@
     # ansible -i inventory.ini k8s_cluster -m shell -a "sha256sum /usr/local/share/ca-certificates/rootCA.crt | awk '{print $1}'"
     # ansible localhost -m shell -a "sha256sum /usr/local/share/ca-certificates/rootCA.crt | awk '{print $1}'"
     # ansible -i inventory.ini k8s_cluster -m shell -a "echo | openssl s_client -connect gitlab.localdomain:443 -CAfile /etc/ssl/certs/ca-certificates.crt | grep 'Verify return code: 0 (ok)'"
+    - name: Ensure facts are gathered for all nodes
+      ansible.builtin.setup:
+      delegate_to: "{{ node_item }}"
+      delegate_facts: true
+      loop: "{{ groups['k8s_cluster'] + ['localhost'] }}"
+      loop_control:
+        loop_var: node_item
+      when: hostvars[node_item]['ansible_facts']['os_family'] is not defined
+
     - name: "Local & Cluster | Distribute CA certificate"
       become: true
       ansible.builtin.copy:
         content: "{{ ca_content_b64['content'] | b64decode }}"
         dest: >-
-          {{ (hostvars[node_item].ansible_os_family == 'RedHat') | ternary(
+          {{ (hostvars[node_item]['ansible_facts']['os_family'] == 'RedHat') | ternary(
               '/usr/pki/ca-trust/source/anchors/rootCA.crt',
               '/usr/local/share/ca-certificates/rootCA.crt'
           ) }}

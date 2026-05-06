@@ -77,10 +77,9 @@ k8s_plugins:
     manifest: "{{ k8s_plugin_manifest_proxy_safe | default('') }}https://raw.githubusercontent.com/metallb/metallb/v{{ k8s_plugin_metallb_version | default('0.15.3')
       }}/config/manifests/metallb-native.yaml"
     wait:
-      enabled: true
-      resource: deployment
-      labels: "app=metallb,component=controller"
-      condition: "condition=available"
+      resource: "deployment/controller"
+      labels: ""
+      condition: "available"
       timeout: "5m"
     configuration:
       data: |

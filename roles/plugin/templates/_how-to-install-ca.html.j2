@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -259,69 +258,77 @@ Remove-Item $tempPem, $tempDer -Force
 Write-Host "Root CA imported successfully" -ForegroundColor Green</code></pre>
         <div class="warning">⚠️ <strong>Admin required</strong>: Right‑click PowerShell → Run as Administrator.</div>
 
-        <h3>🔒 Clearing HSTS settings (after root CA renewal)</h3>
-        <p>If you have previously accessed the internal domain over HTTPS and the server sent a <code>Strict-Transport-Security</code> header, your browser may have cached HSTS policy for that domain. After replacing the root CA, you must clear this cache to avoid connection errors.</p>
+        <h3>🔒 Clearing HSTS settings</h3>
+        <p>If you have previously accessed the internal domain over HTTPS, you must clear the HSTS cache after replacing the root CA.</p>
 
         <h4>For Chromium‑based browsers (Chrome, Edge, Brave, etc.)</h4>
         <ol>
             <li>Type <code class="inline-code">chrome://net-internals/#hsts</code> (or <code class="inline-code">edge://net-internals/#hsts</code>).</li>
             <li>In the <strong>Delete domain security policies</strong> section, enter your internal domain (e.g. <code class="inline-code">ca.localdomain</code>) and click <strong>Delete</strong>.</li>
-            <li>If you want to disable HSTS entirely for testing, you can also add the domain to the <strong>Delete domain security policies</strong> area – this removes any pinned HPKP and HSTS settings.</li>
         </ol>
 
-        <h4>For Firefox</h4>
-        <ol>
-            <li>Type <code class="inline-code">about:config</code> in the address bar and accept the risk.</li>
-            <li>Search for <code class="inline-code">strict</code> or directly for your domain. Alternatively, go to <strong>Settings → Privacy & Security → Cookies and Site Data → Manage Data</strong> and remove the entry for your internal domain.</li>
-            <li>For HSTS specific, use the <strong>Site Security Service</strong> viewer: go to <code class="inline-code">about:networking#hsts</code>, then under <strong>Delete HSTS</strong> enter your domain and click <strong>Delete</strong>.</li>
-        </ol>
-
-        <div class="note">📘 <strong>Why clear HSTS?</strong> After you change the root CA, the new certificate chain may differ (e.g., new public key). Browsers that previously recorded HSTS for the old certificate may refuse to connect. Clearing HSTS forces the browser to re‑evaluate the site’s security policy with the newly trusted CA.</div>
-
-        <div class="success">✅ After importing the certificate and clearing HSTS (if needed), restart your browser completely. The internal site should now be trusted.</div>
+        <div class="success">✅ Restart your browser after these steps.</div>
     </div>
 
     <!-- Debian / Ubuntu Tab -->
     <div id="debian" class="tab-content">
         <h2>🐧 Debian, Ubuntu, and derivatives</h2>
-        <p>System‑wide trust store using <code>update-ca-certificates</code>.</p>
+        <p>System‑wide trust store and browser-specific trust (Chrome/Chromium/Edge).</p>
 
-        <h3>📥 1. Download and place certificate</h3>
-        <pre><code>sudo wget -O /usr/local/share/ca-certificates/rootCA.crt http://ca.localdomain/rootCA.pem</code></pre>
-        <div class="note">📌 Extension <strong>must be .crt</strong> and PEM format (<code>-----BEGIN CERTIFICATE-----</code>).</div>
+        <h3>📥 1. System Trust Store</h3>
+        <pre><code>sudo apt update && sudo apt install -y wget
+sudo wget -O /usr/local/share/ca-certificates/rootCA.crt http://ca.localdomain/rootCA.pem
+sudo update-ca-certificates --fresh</code></pre>
+        <div class="note">📌 Extension <strong>must be .crt</strong> for the system trust store to recognize it.</div>
 
-        <h3>🔄 2. Update and force overwrite</h3>
-        <pre><code>sudo update-ca-certificates --fresh</code></pre>
-        <p>Or standard update (also overwrites):</p>
-        <pre><code>sudo update-ca-certificates</code></pre>
+        <h3>🌐 2. Browser Trust (Chrome/Chromium/Edge)</h3>
+        <p>Chromium-based browsers on Linux use a separate NSS database. Run these commands to manually trust the CA:</p>
+        <pre><code># Install NSS tools
+sudo apt install -y libnss3-tools
+
+# Add to the NSS database
+certutil -d sql:$HOME/.pki/nssdb -A -t "CT,C,C" -n "K8s-New-Root" -i /usr/local/share/ca-certificates/rootCA.crt</code></pre>
+        <div class="note">📘 This bypasses the need for <code>libnss3-tools</code> if performed via the browser GUI, but these commands provide the necessary CLI alternative.</div>
 
         <h3>🧪 3. Verification</h3>
-        <pre><code>trust list | grep -i "your CA name"   # if p11-kit installed</code></pre>
+        <pre><code># Verify system trust
+openssl s_client -connect gitlab.localdomain:443 -CAfile /etc/ssl/certs/ca-certificates.crt </dev/null
 
-        <div class="success">✅ Reboot or restart services for full effect.</div>
+# Verify browser database
+certutil -d sql:$HOME/.pki/nssdb -L | grep "K8s-New-Root"</code></pre>
+        <div class="success">✅ Restart your browser completely for the changes to take effect.</div>
     </div>
 
     <!-- RedHat / RHEL tab -->
     <div id="rhel" class="tab-content">
         <h2>🔴 RHEL, CentOS, Fedora, Rocky Linux, AlmaLinux</h2>
-        <p>RedHat‑based distributions use <code>update-ca-trust</code>.</p>
+        <p>RedHat‑based distributions use <code>update-ca-trust</code> and <code>nss-tools</code>.</p>
 
-        <h3>📥 1. Add certificate to anchors directory</h3>
-        <pre><code>sudo wget -O /etc/pki/ca-trust/source/anchors/rootCA.crt http://ca.localdomain/rootCA.pem</code></pre>
-
-        <h3>⚙️ 2. Rebuild trust store (force overwrite)</h3>
-        <pre><code>sudo update-ca-trust extract</code></pre>
+        <h3>📥 1. System Trust Store</h3>
+        <pre><code>sudo dnf install -y wget
+sudo wget -O /etc/pki/ca-trust/source/anchors/rootCA.crt http://ca.localdomain/rootCA.pem
+sudo update-ca-trust extract</code></pre>
         <div class="warning">💡 To ensure a clean overwrite, remove the old bundle first:
             <pre><code>sudo rm -f /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
 sudo update-ca-trust extract</code></pre>
         </div>
 
-        <h3>✔️ 3. Verification</h3>
-        <pre><code>openssl x509 -in /etc/pki/ca-trust/source/anchors/rootCA.crt -noout -subject
-grep -A1 "YourCACommonName" /etc/pki/tls/certs/ca-bundle.crt</code></pre>
+        <h3>🌐 2. Browser Trust (Chrome/Chromium/Edge)</h3>
+        <p>Add the certificate to the Network Security Services (NSS) shared database:</p>
+        <pre><code># Install NSS tools
+sudo dnf install -y nss-tools
 
-        <div class="note">📘 Alternatively, use <code>sudo trust anchor --store rootCA.pem</code> (p11-kit).</div>
-        <div class="success">✅ Reboot to ensure all daemons pick up the new CA.</div>
+# Add to the NSS database
+certutil -d sql:$HOME/.pki/nssdb -A -t "CT,C,C" -n "K8s-New-Root" -i /etc/pki/ca-trust/source/anchors/rootCA.crt</code></pre>
+        <div class="note">📌 RedHat systems use <code>nss-tools</code> for the <code>certutil</code> command.</div>
+
+        <h3>✔️ 3. Verification</h3>
+        <pre><code># Check if certificate exists in the bundle
+grep -i "Your CA Name" /etc/pki/tls/certs/ca-bundle.crt
+
+# Check browser database
+certutil -d sql:$HOME/.pki/nssdb -L</code></pre>
+        <div class="success">✅ Reboot or restart your browser to ensure all daemons pick up the new CA.</div>
     </div>
 </div>
 
