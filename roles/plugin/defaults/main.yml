@@ -268,6 +268,7 @@ k8s_plugins:
   # Get password of `root` when logon in web:         kubectl get secret -n gitlab-system gitlab-gitlab-initial-root-password -o jsonpath="{.data.password}" | base64 --decode && echo
   # Get password of DB user `gitlab` in postgresql:   kubectl get secret -n gitlab-system gitlab-postgresql-password -o jsonpath="{.data.postgresql-password}" | base64 -d && echo
   # Get password of DB user `postgres` in postgresql: kubectl get secret -n gitlab-system gitlab-postgresql-password -o jsonpath="{.data.postgresql-postgres-password}" | base64 -d && echo
+  # Get password of SMTP user `cdeyin@sbkswyy.cn` in gitlab-smtp-password:   kubectl get secret -n gitlab-system gitlab-smtp-password -o jsonpath="{.data.password}" | base64 -d && echo
   gitlab:
     enabled: "{{ k8s_plugin_gitlab_enabled | default(true) }}"
     depends_on: ["traefik", "longhorn"]

@@ -38,23 +38,23 @@ global:
   # Parameterized SMTP configuration
   smtp:
     enabled: {{ k8s_plugin_gitlab_smtp_enabled | default(true) }}
-    address: "{{ k8s_plugin_gitlab_smtp_address | default('smtp.mxhichina.com') }}"
+    address: "{{ k8s_plugin_gitlab_smtp_address | default('smtp.qiye.aliyun.com') }}"
     port: {{ k8s_plugin_gitlab_smtp_port | default(465) }}
     user_name: "{{ k8s_plugin_gitlab_smtp_user_name | default('cdeyin@sbkswyy.cn') }}"
     password:
       secret: "{{ k8s_plugin_gitlab_smtp_password_secret_name | default('gitlab-smtp-password') }}"
       key: "{{ k8s_plugin_gitlab_smtp_password_key | default('password') }}"
-    domain: "{{ k8s_plugin_gitlab_smtp_domain | default('smtp.mxhichina.com') }}"
+    domain: "{{ k8s_plugin_gitlab_smtp_domain | default('smtp.qiye.aliyun.com') }}"
     authentication: "{{ k8s_plugin_gitlab_smtp_authentication | default('login') }}"
     starttls_auto: {{ k8s_plugin_gitlab_smtp_starttls_auto | default(false) }}
     tls: {{ k8s_plugin_gitlab_smtp_tls | default(true) }}
   
   # Parameterized Email headers
   email:
-    from: "{{ k8s_plugin_gitlab_email_from | default('cdeyin@sbkswyy.cn') }}"
-    display_name: "{{ k8s_plugin_gitlab_email_display_name | default('SBK-GitLab') }}"
-    reply_to: "{{ k8s_plugin_gitlab_email_reply_to | default('cdeyin@sbkswyy.cn') }}"
-    subject_suffix: "{{ k8s_plugin_gitlab_email_subject_suffix | default('[SBK-GITLAB]') }}"
+    from: "{{ k8s_plugin_gitlab_email_from | default(k8s_plugin_gitlab_smtp_user_name | default('cdeyin@sbkswyy.cn')) }}"
+    display_name: "{{ k8s_plugin_gitlab_email_display_name | default('[GitLab]') }}"
+    reply_to: "{{ k8s_plugin_gitlab_email_reply_to | default(k8s_plugin_gitlab_smtp_user_name | default('cdeyin@sbkswyy.cn')) }}"
+    subject_suffix: "{{ k8s_plugin_gitlab_email_subject_suffix | default('') }}"
 
 postgresql:
   enabled: {{ k8s_plugin_gitlab_postgresql_enabled | default(true) }}

@@ -68,7 +68,9 @@
           ansible.builtin.meta: end_play
           when: _pause_status.user_input | default('y') | lower != 'y'
 
-      when: not ansible_check_mode
+      when: 
+        - not ansible_check_mode
+        - k8s_plugins_only is not defined
 
     - name: Install Kubernetes plugins
       ansible.builtin.include_tasks: "{{ item.key }}.yml"
