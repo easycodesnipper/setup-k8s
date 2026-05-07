@@ -1,11 +1,39 @@
 ---
 # roles/plugin/templates/gitlab-runner-helm-values.j2
 
-gitlabUrl: {{ k8s_plugin_gitlab_runner_gitlab_url | default('http://gitlab-webservice-default.gitlab-system.svc.cluster.local:8181/') }}
+{% set internal_gitlab_url = k8s_plugin_gitlab_runner_gitlab_url | default('http://gitlab-webservice-default.gitlab-system.svc.cluster.local:8181') %}
+
+gitlabUrl: {{ internal_gitlab_url }}
 
 runnerToken: "{{ k8s_plugin_gitlab_runner_token_value | default('') }}"
 
 concurrent: {{ k8s_plugin_gitlab_runner_concurrent | default(10) }}
 
 rbac:
-  create: {{ k8s_plugin_gitlab_runner_rbac_create | default(true) | bool }}
+  create: {{ k8s_plugin_gitlab_runner_rbac_create | default(true) | lower }}
+
+runners:
+  cache:
+    secretName: {{ k8s_plugin_gitlab_runner_cache_secret_name | default('gitlab-minio-secret') }}
+  config: |
+    [[runners]]
+      clone_url = "{{ internal_gitlab_url }}"
+      [runners.cache]
+        Type = "s3"
+        Shared = {{ k8s_plugin_gitlab_runner_cache_shared | default(true) | lower }}
+        [runners.cache.s3]
+          ServerAddress = "{{ k8s_plugin_gitlab_runner_cache_s3_server_address | default('gitlab-minio-svc.gitlab-system.svc.cluster.local:9000') }}"
+          BucketName = "{{ k8s_plugin_gitlab_runner_cache_s3_bucket_name | default('runner-cache') }}"
+{% if k8s_plugin_gitlab_runner_cache_s3_bucket_location is defined and k8s_plugin_gitlab_runner_cache_s3_bucket_location %}
+          BucketLocation = "{{ k8s_plugin_gitlab_runner_cache_s3_bucket_location }}"
+{% endif %}
+          Insecure = {{ k8s_plugin_gitlab_runner_cache_s3_insecure | default(true) | lower }}
+          AuthenticationType = "{{ k8s_plugin_gitlab_runner_cache_s3_authentication_type | default('access-key') }}"
+          PathStyle = {{ k8s_plugin_gitlab_runner_cache_s3_path_style | default(true) | lower }}
+      [runners.kubernetes]
+        [[runners.kubernetes.helper_env]]
+          name = "FF_USE_LEGACY_S3_CACHE_ADAPTER"
+          value = "true"
+        [[runners.kubernetes.helper_env]]
+          name = "FF_USE_FASTZIP"
+          value = "true"

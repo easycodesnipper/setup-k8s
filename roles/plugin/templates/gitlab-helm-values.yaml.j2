@@ -15,11 +15,11 @@ global:
 {% if k8s_plugin_gitlab_global_external_url is defined %}
   external_url: {{ k8s_plugin_gitlab_global_external_url }}
 {% else %}
-  external_url: "{{ 'https' if k8s_plugin_gitlab_hosts_https | default(false) else 'http' }}://gitlab.{{ k8s_plugin_gitlab_hosts_domain | default('localdomain') }}"
+  external_url: "{{ 'https' if tls_enabled else 'http' }}://gitlab.{{ k8s_plugin_gitlab_hosts_domain | default('localdomain') }}"
 {% endif %}
   hosts:
     domain: {{ k8s_plugin_gitlab_hosts_domain | default('localdomain') }}
-    https: {{ k8s_plugin_gitlab_hosts_https | default(false) }}
+    https: {{ tls_enabled }}
   ingress:
     enabled: {{ k8s_plugin_gitlab_global_ingress_enabled | default(true) }}
     configureCertmanager: {{ k8s_plugin_gitlab_global_ingress_configure_certmanager | default(false) }}
