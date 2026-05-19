@@ -327,3 +327,25 @@ k8s_plugins:
       tls:
         enabled: "{{ k8s_plugin_openproject_ingress_tls_enabled | default(true) | bool }}"
         secret_name: "{{ k8s_plugin_openproject_ingress_tls_secret_name | default('mkcert-wildcard-tls') }}"
+
+  ################################### nvidia-device-plugin ###################################
+  # Description: NVIDIA GPU device plugin for Kubernetes — exposes GPU resources to pods.
+  # Helm repo: https://nvidia.github.io/k8s-device-plugin
+  # Show latest N available versions: helm search repo nvdp --versions | head -n 4
+  # Show supported values: helm show values nvdp/nvidia-device-plugin --version 0.17.1
+  # Docs: https://github.com/NVIDIA/k8s-device-plugin
+  nvidia-device-plugin:
+    enabled: "{{ k8s_plugin_nvidia_device_plugin_enabled | default(false) | bool }}"
+    namespace: "{{ k8s_plugin_nvidia_device_plugin_namespace | default('nvidia-device-plugin') }}"
+    helm:
+      repository:
+        name: "{{ k8s_plugin_nvidia_device_plugin_helm_repo_name | default('nvdp') }}"
+        url: "{{ k8s_plugin_nvidia_device_plugin_helm_repo_url | default('https://nvidia.github.io/k8s-device-plugin') }}"
+      release: "{{ k8s_plugin_nvidia_device_plugin_helm_release | default('nvdp') }}"
+      chart: "{{ k8s_plugin_nvidia_device_plugin_helm_chart | default('nvdp/nvidia-device-plugin') }}"
+      version: "{{ k8s_plugin_nvidia_device_plugin_version | default('0.17.1') }}"
+    wait:
+      resource: "daemonset/nvdp-nvidia-device-plugin"
+      labels: "app.kubernetes.io/name=nvidia-device-plugin"
+      condition: "Ready"
+      timeout: "5m"

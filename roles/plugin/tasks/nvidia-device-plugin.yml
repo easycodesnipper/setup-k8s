@@ -1,0 +1,6 @@
+---
+# roles/plugin/tasks/nvidia-device-plugin.yml
+
+- name: Install NVIDIA Device Plugin
+  ansible.builtin.include_tasks: _install_plugin.yml
+  tags: plugin-nvidia-device-plugin-install
