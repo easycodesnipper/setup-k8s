@@ -1,0 +1,51 @@
+---
+# roles/nvidia-container-toolkit/tasks/install-packages.yml
+
+- name: Install NVIDIA Container Toolkit packages (Debian/Ubuntu)
+  when: ansible_facts['os_family'] == 'Debian'
+  block:
+    - name: Build package list with version pinning
+      ansible.builtin.set_fact:
+        nct_packages: >-
+          {{
+            [
+              'nvidia-container-toolkit' + ('=' + nct_version if nct_version else ''),
+              'nvidia-container-toolkit-base' + ('=' + nct_version if nct_version else ''),
+              'libnvidia-container-tools' + ('=' + nct_version if nct_version else ''),
+              'libnvidia-container1' + ('=' + nct_version if nct_version else '')
+            ]
+          }}
+
+    - name: Install NVIDIA Container Toolkit packages
+      ansible.builtin.apt:
+        name: "{{ nct_packages }}"
+        state: present
+        update_cache: true
+      retries: 3
+      delay: 10
+      register: result
+      until: result is succeeded
+
+- name: Install NVIDIA Container Toolkit packages (RHEL/CentOS/Rocky/AlmaLinux)
+  when: ansible_facts['os_family'] == 'RedHat'
+  block:
+    - name: Build package list with version pinning
+      ansible.builtin.set_fact:
+        nct_packages: >-
+          {{
+            [
+              'nvidia-container-toolkit' + ('-' + nct_version if nct_version else ''),
+              'nvidia-container-toolkit-base' + ('-' + nct_version if nct_version else ''),
+              'libnvidia-container-tools' + ('-' + nct_version if nct_version else ''),
+              'libnvidia-container1' + ('-' + nct_version if nct_version else '')
+            ]
+          }}
+
+    - name: Install NVIDIA Container Toolkit packages
+      ansible.builtin.dnf:
+        name: "{{ nct_packages }}"
+        state: present
+      retries: 3
+      delay: 10
+      register: result
+      until: result is succeeded

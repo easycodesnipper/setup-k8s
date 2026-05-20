@@ -1,0 +1,50 @@
+---
+# roles/nvidia-container-toolkit/defaults/main.yml
+
+# Enable or disable NVIDIA Container Toolkit installation
+nct_enabled: false
+
+# Use mirror for downloading packages (default: false, use official NVIDIA repo)
+nct_use_mirror: false
+
+# NVIDIA Container Toolkit version (leave empty for latest)
+nct_version: "1.19.0-1"
+
+# GPG keyring path for signature verification
+nct_gpg_keyring: "/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg"
+
+# Repository base URLs
+nct_repo_url_official: "https://nvidia.github.io/libnvidia-container"
+nct_repo_url_mirror: "https://mirrors.ustc.edu.cn/libnvidia-container"
+
+# Distribution mapping for repository paths
+nct_distro_mapping:
+  ubuntu: "ubuntu{{ ansible_distribution_version | replace('.', '') }}"
+  debian: "debian{{ ansible_distribution_version | replace('.', '') }}"
+  rocky: "centos{{ ansible_distribution_major_version }}"
+  almalinux: "centos{{ ansible_distribution_major_version }}"
+  centos: "centos{{ ansible_distribution_major_version }}"
+  rhel: "centos{{ ansible_distribution_major_version }}"
+
+nct_distro: "{{ nct_distro_mapping[ansible_facts['distribution'] | lower] | default('') }}"
+
+# Required packages before installing NVIDIA Container Toolkit
+nct_prerequisites:
+  Debian:
+    - ca-certificates
+    - curl
+    - gnupg2
+  RedHat:
+    - ca-certificates
+    - curl
+    - yum-utils
+
+# NVIDIA Container Runtime configuration
+nct_containerd_config_path: "/etc/containerd/config.toml"
+nct_runtime_class: "nvidia"
+
+# Configure containerd to use NVIDIA runtime by default
+nct_configure_containerd: true
+
+# Restart containerd after configuration
+nct_restart_containerd: true

@@ -34,7 +34,7 @@
         backup: true
       notify: Restart containerd
 
-    - name: Ensure SystemdCgroup is set to true (preserve indentation, uncomment if needed)
+    - name: Ensure SystemdCgroup is set to true
       ansible.builtin.lineinfile:
         path: "{{ containerd_config_file }}"
         regexp: "^( *)?#?\\s*(SystemdCgroup = ).*"

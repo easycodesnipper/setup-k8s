@@ -1,0 +1,85 @@
+---
+# roles/nvidia-container-toolkit/tasks/main.yml
+
+- name: Check if NVIDIA Container Toolkit installation is enabled
+  ansible.builtin.debug:
+    msg: "NVIDIA Container Toolkit installation is {{ 'enabled' if nct_enabled else 'disabled' }}"
+
+- name: Install NVIDIA Container Toolkit
+  when: nct_enabled | bool
+  block:
+    - name: Gather system facts if not available
+      ansible.builtin.setup:
+      when: ansible_facts['os_family'] is not defined
+
+    - name: Detect NVIDIA GPU presence
+      ansible.builtin.shell: |
+        if command -v nvidia-smi &> /dev/null; then
+          gpu_info=$(nvidia-smi --query-gpu=name --format=csv,noheader,nounits 2>/dev/null | head -1)
+          if [ -n "$gpu_info" ]; then
+            echo "GPU_DETECTED: $gpu_info"
+            exit 0
+          fi
+        fi
+        
+        if lspci 2>/dev/null | grep -i nvidia > /dev/null; then
+          echo "GPU_DETECTED: NVIDIA GPU found via lspci (driver may not be loaded)"
+          exit 0
+        fi
+        
+        echo "NO_GPU_DETECTED"
+        exit 0
+      register: gpu_detection
+      changed_when: false
+
+    - name: Set GPU detection fact
+      ansible.builtin.set_fact:
+        gpu_detected: "{{ 'GPU_DETECTED' in gpu_detection.stdout }}"
+        gpu_info: "{{ gpu_detection.stdout | regex_replace('GPU_DETECTED: ', '') }}"
+
+    - name: Display GPU detection status
+      ansible.builtin.debug:
+        msg: |
+          {% if gpu_detected | bool %}
+          ✅ NVIDIA GPU detected: {{ gpu_info }}
+          {% else %}
+          ⚠️  No NVIDIA GPU detected on this host
+          
+          The NVIDIA Container Toolkit will still be installed, but GPU functionality
+          will not be available until:
+            • NVIDIA GPU hardware is present
+            • NVIDIA drivers are installed and loaded
+            • System is rebooted if drivers were just installed
+          {% endif %}
+
+    - name: Validate distribution support
+      ansible.builtin.fail:
+        msg: "Distribution {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }} is not supported for NVIDIA Container Toolkit"
+      when: >
+        nct_distro == '' or
+        (ansible_facts['os_family'] not in ['Debian', 'RedHat'])
+
+    - name: Install prerequisites
+      ansible.builtin.include_tasks:
+        file: install-prerequisites.yml
+
+    - name: Setup NVIDIA Docker repository
+      ansible.builtin.include_tasks:
+        file: setup-repo-{{ ansible_facts["os_family"] | lower }}.yml
+
+    - name: Install NVIDIA Container Toolkit packages
+      ansible.builtin.include_tasks:
+        file: install-packages.yml
+
+    - name: Configure NVIDIA Container Runtime
+      ansible.builtin.include_tasks:
+        file: configure.yml
+      when: nct_configure_containerd | bool
+
+    - name: Restart containerd service
+      ansible.builtin.systemd:
+        name: containerd
+        state: restarted
+      when:
+        - nct_restart_containerd | bool
+        - nct_configure_containerd | bool

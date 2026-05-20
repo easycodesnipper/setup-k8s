@@ -1,0 +1,55 @@
+---
+# roles/nvidia-container-toolkit/tasks/configure.yml
+# This task safely adds NVIDIA Container Runtime configuration to existing containerd config
+# without modifying or removing any existing configurations.
+
+- name: Check if containerd config exists
+  ansible.builtin.stat:
+    path: "{{ nct_containerd_config_path }}"
+  register: containerd_conf_stat
+
+- name: Fail if containerd config does not exist
+  ansible.builtin.fail:
+    msg: "Containerd configuration file not found at {{ nct_containerd_config_path }}. Please install and configure containerd first."
+  when: not containerd_conf_stat.stat.exists
+
+- name: Check if NVIDIA runtime is already configured
+  ansible.builtin.command:
+    cmd: "grep -q 'nvidia-container-runtime' {{ nct_containerd_config_path }}"
+  register: nvidia_runtime_check
+  failed_when: false
+  changed_when: false
+
+- name: Configure NVIDIA Container Runtime in containerd
+  when: nvidia_runtime_check.rc != 0
+  block:
+    - name: Backup existing containerd configuration before adding NVIDIA runtime
+      ansible.builtin.copy:
+        src: "{{ nct_containerd_config_path }}"
+        dest: "{{ nct_containerd_config_path }}.bak.nvidia.{{ ansible_date_time.epoch }}"
+        remote_src: true
+        mode: '0644'
+
+    - name: Append NVIDIA runtime configuration to existing containerd config
+      ansible.builtin.blockinfile:
+        path: "{{ nct_containerd_config_path }}"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - NVIDIA Container Runtime"
+        block: |
+
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.{{ nct_runtime_class }}]
+            runtime_type = "io.containerd.runc.v2"
+            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.{{ nct_runtime_class }}.options]
+              BinaryName = "/usr/bin/nvidia-container-runtime"
+        insertafter: EOF
+        create: false
+
+    - name: Verify NVIDIA runtime was added successfully
+      ansible.builtin.command:
+        cmd: "grep -q 'nvidia-container-runtime' {{ nct_containerd_config_path }}"
+      register: verify_config
+      changed_when: false
+      failed_when: verify_config.rc != 0
+
+- name: Display NVIDIA runtime configuration status
+  ansible.builtin.debug:
+    msg: "NVIDIA Container Runtime has been {{ 'added to' if nvidia_runtime_check.rc != 0 else 'already present in' }} containerd configuration"

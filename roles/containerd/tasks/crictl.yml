@@ -1,13 +1,9 @@
 ---
 # roles/containerd/tasks/crictl.yml
+# Configure crictl to work with containerd
+# Note: cri-tools package is installed by the kubernetes role (runs after containerd)
 
-- name: Install required packages
-  ansible.builtin.package:
-    name: "cri-tools"
-    state: present
-    update_cache: true
-
-- name: Configure crictl
+- name: Configure crictl for containerd
   ansible.builtin.copy:
     content: |
       runtime-endpoint: {{ containerd_socket | default('unix:///run/containerd/containerd.sock') }}

@@ -1,0 +1,8 @@
+---
+# roles/nvidia-container-toolkit/tasks/install-prerequisites.yml
+
+- name: Install prerequisite packages for NVIDIA Container Toolkit
+  ansible.builtin.package:
+    name: "{{ nct_prerequisites[ansible_facts['os_family']] }}"
+    state: present
+    update_cache: true

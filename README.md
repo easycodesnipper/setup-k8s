@@ -18,6 +18,7 @@ This project provides an automated way to set up a Kubernetes cluster using Ansi
 │   └── join/                   # Worker node joining 
 ├── inventory.ini               # Inventory file defining cluster nodes
 ├── playbook-install.yml        # Main installation playbook
+├── playbook-join.yml           # Join new nodes to existing cluster
 ├── playbook-reset.yml          # Reset/cleanup playbook
 ├── playbook-verify.yml         # Verify cluster status playbook
 └── playbook-plugin.yml         # Install plugins(optional)
@@ -84,7 +85,7 @@ This will:
 4. Initialize the controller node
 5. Join worker nodes to the cluster
 
-```mermaid
+``mermaid
 flowchart LR
     Start([Start]) --> Prepare
     
@@ -106,6 +107,24 @@ flowchart LR
     class J workers
     class Prepare prepare_box
 ```
+
+### Adding New Nodes
+
+To add new worker nodes to an existing cluster:
+
+```bash
+# Define new nodes in inventory.ini under [new_workers] group
+# Then run:
+ansible-playbook -i inventory.ini playbook-join.yml --extra-vars "target_hosts=new_workers"
+```
+
+For detailed instructions, see [README_JOIN.md](./README_JOIN.md).
+
+This will:
+1. Validate that the cluster is initialized
+2. Prepare new nodes (prerequisites, containerd, kubernetes)
+3. Join new nodes to the cluster
+4. Verify nodes are ready
 
 ### Install Plugins (Optional)
 

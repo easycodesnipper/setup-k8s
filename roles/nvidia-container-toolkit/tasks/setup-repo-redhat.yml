@@ -1,0 +1,29 @@
+---
+# roles/nvidia-container-toolkit/tasks/setup-repo-redhat.yml
+
+- name: Check if NVIDIA Container Toolkit repository file exists and is not empty
+  ansible.builtin.stat:
+    path: /etc/yum.repos.d/nvidia-container-toolkit.repo
+  register: nct_repo_file
+
+- name: Setup NVIDIA Container Toolkit repository
+  when: not nct_repo_file.stat.exists or nct_repo_file.stat.size == 0
+  block:
+    - name: Set repository base URL based on mirror preference
+      ansible.builtin.set_fact:
+        nct_repo_base_url: "{{ nct_repo_url_mirror if nct_use_mirror | bool else nct_repo_url_official }}"
+
+    - name: Download and install NVIDIA Container Toolkit repository configuration
+      ansible.builtin.get_url:
+        url: "{{ nct_repo_base_url }}/stable/rpm/nvidia-container-toolkit.repo"
+        dest: /etc/yum.repos.d/nvidia-container-toolkit.repo
+        mode: '0644'
+      register: repo_download
+      until: repo_download is success
+      retries: 5
+      delay: 15
+
+- name: Update YUM cache to include NVIDIA Container Toolkit repository
+  ansible.builtin.command:
+    cmd: yum makecache
+  changed_when: false

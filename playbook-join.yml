@@ -1,0 +1,108 @@
+---
+# playbook-join.yml
+# This playbook allows you to join new nodes to an existing Kubernetes cluster
+# Usage: ansible-playbook -i inventory.ini playbook-join.yml --extra-vars "target_hosts=new-workers"
+
+- name: Validate cluster is initialized
+  hosts: controllers[0]
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Check if cluster is initialized
+      ansible.builtin.command: kubectl cluster-info
+      register: cluster_info
+      changed_when: false
+      failed_when: false
+      become: false
+
+    - name: Fail if cluster is not initialized
+      ansible.builtin.fail:
+        msg: |
+          Kubernetes cluster is not initialized or not accessible.
+          
+          Please run playbook-install.yml first to initialize the cluster before joining new nodes.
+          
+          Command: ansible-playbook -i inventory.ini playbook-install.yml
+      when: cluster_info.rc != 0
+
+    - name: Display cluster information
+      ansible.builtin.debug:
+        msg: "Cluster is ready. Controller: {{ inventory_hostname }}"
+      when: cluster_info.rc == 0
+
+- name: Prepare new nodes for joining
+  hosts: "{{ target_hosts | default('new_workers') }}"
+  become: true
+  any_errors_fatal: true
+  pre_tasks:
+    - name: Test network reachability
+      ansible.builtin.ping:
+      tags: always
+
+    - name: Display target node information
+      ansible.builtin.debug:
+        msg: "Preparing node {{ inventory_hostname }} ({{ ansible_host }}) for joining the cluster"
+  roles:
+    - role: prerequisite
+      tags: prereq
+    - role: containerd
+      tags: containerd
+    - role: nvidia-container-toolkit
+      tags: nct
+      when: nct_enabled | default(false) | bool
+    - role: kubernetes
+      tags: kubernetes
+  tags: prepare
+
+- name: Join new nodes to cluster
+  hosts: "{{ target_hosts | default('new_workers') }}"
+  become: true
+  roles:
+    - role: join
+  tags: join
+
+- name: Verify joined nodes
+  hosts: controllers[0]
+  become: false
+  gather_facts: false
+  vars:
+    # Get the list of hosts from the target_hosts group
+    target_nodes: "{{ groups[target_hosts | default('new_workers')] }}"
+  tasks:
+    - name: Wait for each node to be ready
+      ansible.builtin.shell: |
+        kubectl get node {{ item }} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
+      loop: "{{ target_nodes }}"
+      register: node_ready_status
+      retries: 30
+      delay: 10
+      until: node_ready_status.stdout == "True"
+      changed_when: false
+      failed_when: false
+
+    - name: Check if all nodes are ready
+      ansible.builtin.set_fact:
+        all_nodes_ready: "{{ node_ready_status.results | selectattr('stdout', 'equalto', 'True') | list | length == target_nodes | length }}"
+
+    - name: Display node status
+      ansible.builtin.command: kubectl get nodes
+      register: nodes_status
+      changed_when: false
+
+    - name: Show cluster nodes
+      ansible.builtin.debug:
+        msg: |
+          Current cluster nodes:
+          {{ nodes_status.stdout }}
+
+    - name: Warn about nodes not ready
+      ansible.builtin.debug:
+        msg: |
+          WARNING: Some nodes are not in Ready state yet.
+          
+          This is normal immediately after joining. Nodes may take a few minutes to become ready.
+          
+          Check status manually:
+            kubectl get nodes
+            kubectl describe node <node-name>
+      when: not (all_nodes_ready | default(false))
