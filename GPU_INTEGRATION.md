@@ -67,7 +67,67 @@ kubectl taint nodes k8s-gpu-worker-1 gpu-node=true:NoSchedule
 
 ### ⚠️ 重要提示
 
-本工作流应在 GPU 节点成功加入集群后立即执行，确保在节点变为 `Ready` 状态前完成隔离配置。
+本工作流中的**前置条件**必须在 GPU 节点加入 Kubernetes 集群**之前**完成。
+污点打标等隔离配置应在节点加入集群后、变为 `Ready` 状态前立即执行，以确保调度器绝不会将普通业务分配给该节点。
+
+---
+
+### 前置条件：安装 NVIDIA 驱动和 Container Toolkit
+
+**在将 GPU 节点加入 Kubernetes 集群之前**，必须先在节点上安装 NVIDIA 驱动和 Container Toolkit。
+
+#### 方法 A：使用 Ansible 自动化安装（推荐）
+
+```bash
+# 1. 确保 inventory.ini 中定义了 gpu-workers 组
+cat >> inventory.ini << EOF
+
+[gpu-workers]
+k8s-gpu-worker-1 ansible_host=10.17.3.30
+EOF
+
+# 2. 执行驱动安装 playbook
+ansible-playbook -i inventory.ini playbook-nvidia-driver.yml
+
+# 3. 验证驱动安装
+ssh user@k8s-gpu-worker-1 "nvidia-smi"
+```
+
+**工作原理**：
+1. `nvidia-driver` role 自动检测 GPU 硬件
+2. 使用 `ubuntu-drivers autoinstall` 安装推荐驱动
+3. 可选自动重启系统
+4. 验证驱动加载成功
+
+#### 方法 B：手动安装（快速测试）
+
+```bash
+# SSH 到 GPU 节点
+ssh user@k8s-gpu-worker-1
+
+# 1. 安装推荐的 NVIDIA 驱动
+sudo ubuntu-drivers autoinstall
+
+# 2. 重启系统
+sudo reboot
+
+# 3. 重启后验证驱动
+nvidia-smi
+
+# 4. 安装 NVIDIA Container Toolkit
+distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
+  && curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | \
+    sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+    sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+sudo apt-get update
+sudo apt-get install -y nvidia-container-toolkit
+
+# 5. 配置 containerd
+sudo nvidia-ctk runtime configure --runtime=containerd
+sudo systemctl restart containerd
+```
 
 ---
 
@@ -116,28 +176,59 @@ kubectl label nodes k8s-gpu-worker-1 zone=gpu-compute
 
 ---
 
-### 第三步：安装 NVIDIA Device Plugin
+### 第三步：部署 NVIDIA Device Plugin (自动化流程)
 
-NVIDIA Device Plugin 是 Kubernetes 识别和管理 GPU 资源的必要组件。
+**重要**：当启用 `nvidia-device-plugin` 时，Ansible 会自动按以下顺序执行：
 
-#### 方法 1：使用 DaemonSet（推荐）
-
-```bash
-kubectl create -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/v0.14.0/deployments/static/nvidia-device-plugin.yml
+```
+执行顺序（自动）:
+1. nvidia-driver role          # 在所有 gpu-workers 节点安装显卡驱动
+   ↓
+2. nvidia-container-toolkit    # 配置 containerd GPU 支持
+   ↓
+3. nvidia-device-plugin Helm   # 部署 Kubernetes Device Plugin
 ```
 
-#### 方法 2：使用 Helm Chart
+#### 方法 A：使用 plugin playbook（推荐）
 
 ```bash
-helm repo add nvdp https://nvidia.github.io/k8s-device-plugin
-helm repo update
-helm install nvdp nvdp/nvidia-device-plugin \
-  --namespace nvidia-device-plugin \
-  --create-namespace
+# 一键完成所有 NVIDIA 组件安装
+ansible-playbook -i inventory.ini playbook-plugins.yml \
+  -e "k8s_plugins_only=nvidia-device-plugin"
 ```
 
-**验证安装**：
+**执行过程**：
+1. ✅ 在 `gpu-workers` 组的所有节点上安装 NVIDIA 驱动
+2. ✅ 在 `gpu-workers` 组的所有节点上安装 Container Toolkit
+3. ✅ 在 controller 节点上部署 NDP Helm Chart
+4. ✅ 等待 DaemonSet Ready
+
+#### 方法 B：分步执行（调试用）
+
 ```bash
+# Step 1: 单独安装驱动（可选，用于测试）
+ansible-playbook -i inventory.ini playbook-nvidia-driver.yml
+
+# Step 2: 单独安装 Container Toolkit（可选）
+cd /home/dylan/workspace/infrastructure/setup-k8s
+ansible-playbook -i inventory.ini -e "target_hosts=gpu-workers nct_enabled=true" \
+  roles/nvidia-container-toolkit/tasks/main.yml
+
+# Step 3: 仅部署 NDP Helm Chart（跳过驱动和 toolkit）
+ansible-playbook -i inventory.ini playbook-plugins.yml \
+  -e "k8s_plugins_only=nvidia-device-plugin" \
+  --skip-tags "plugin-nvidia-device-plugin-preinstall"
+```
+
+#### 验证安装
+
+```bash
+# 检查 Driver 状态
+ssh user@k8s-gpu-worker-1 "nvidia-smi"
+
+# 检查 Container Toolkit 配置
+ssh user@k8s-gpu-worker-1 "containerd config dump | grep nvidia"
+
 # 检查 DaemonSet 状态
 kubectl get ds -n nvidia-device-plugin
 
@@ -152,7 +243,7 @@ kubectl describe node k8s-gpu-worker-1 | grep -A 5 "Allocatable:"
 
 后续所有的 GPU 任务，**必须**在 YAML 中包含以下双重限制：
 
-```yaml
+```
 apiVersion: v1
 kind: Pod
 metadata:
@@ -219,7 +310,7 @@ spec:
 
 #### 测试 1：普通 Pod 不应调度到 GPU 节点
 
-```yaml
+```
 apiVersion: v1
 kind: Pod
 metadata:
@@ -239,7 +330,7 @@ kubectl get pod test-no-gpu -o wide
 
 #### 测试 2：GPU Pod 应调度到 GPU 节点
 
-```bash
+```
 kubectl apply -f gpu-workload.yaml
 kubectl get pod gpu-workload -o wide
 # 预期：调度到 k8s-gpu-worker-1
@@ -266,7 +357,7 @@ kubectl logs gpu-workload
 
 ### 🔍 一键检查脚本
 
-```bash
+```
 #!/bin/bash
 # gpu-node-health-check.sh
 

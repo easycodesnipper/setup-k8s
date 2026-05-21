@@ -1,6 +1,35 @@
 ---
 # roles/plugin/tasks/nvidia-device-plugin.yml
 
-- name: Install NVIDIA Device Plugin
+- name: Install NVIDIA GPU Driver on all GPU nodes
+  ansible.builtin.include_role:
+    name: nvidia-driver
+  loop: "{{ groups['gpu-workers'] | default([]) }}"
+  loop_control:
+    loop_var: node_item
+    label: "Install NVIDIA driver on {{ node_item }}"
+  when: 
+    - groups['gpu-workers'] is defined
+    - groups['gpu-workers'] | length > 0
+  vars:
+    nvidia_driver_enabled: true
+    nvidia_driver_reboot: false  # Don't reboot during plugin installation
+  tags: plugin-nvidia-device-plugin-preinstall
+
+- name: Install NVIDIA Container Toolkit on all GPU nodes
+  ansible.builtin.include_role:
+    name: nvidia-container-toolkit
+  loop: "{{ groups['gpu-workers'] | default([]) }}"
+  loop_control:
+    loop_var: node_item
+    label: "Install NVIDIA Container Toolkit on {{ node_item }}"
+  when: 
+    - groups['gpu-workers'] is defined
+    - groups['gpu-workers'] | length > 0
+  vars:
+    nct_enabled: true
+  tags: plugin-nvidia-device-plugin-preinstall
+
+- name: Install NVIDIA Device Plugin Helm Chart
   ansible.builtin.include_tasks: _install_plugin.yml
   tags: plugin-nvidia-device-plugin-install

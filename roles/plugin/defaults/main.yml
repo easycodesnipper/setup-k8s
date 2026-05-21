@@ -5,24 +5,27 @@
 k8s_plugin_manifest_proxy_safe: "{{ (k8s_plugin_manifest_proxy | default('')) | regex_replace('([^/])$', '\\1/') }}"
 
 k8s_plugins:
-  # ################################## cni-flannel ###################################
-  # Description: Simple and lightweight CNI plugin that provides an overlay network for Kubernetes.
+  ################################### cni-flannel ###################################
+  # Description: 🌐 Simple and lightweight CNI plugin that provides an overlay network.
+  # Helm: N/A (Manifest-based)
+  # Kubectl: kubectl get ds -n kube-system -l k8s-app=flannel
+  #          kubectl logs -n kube-system -l k8s-app=flannel
   cni-flannel:
     enabled: "{{ k8s_plugin_flannel_enabled | default(false) | bool }}"
     namespace: "kube-system"
-    manifest: "{{ k8s_plugin_manifest_proxy_safe | default('') }}https://github.com/flannel-io/flannel/releases/download/v{{ k8s_plugin_flannel_version | default('0.27.4')
-      }}/kube-flannel.yml"
+    manifest: "{{ k8s_plugin_manifest_proxy_safe | default('') }}https://github.com/flannel-io/flannel/releases/download/v{{ k8s_plugin_flannel_version | default('0.27.4') }}/kube-flannel.yml"
     wait:
       labels: "k8s-app=flannel"
 
   ################################### cni-calico ###################################
-  # Description: High-performance CNI plugin with network policy enforcement and advanced routing.
-  # Validate if patch works: kubectl get daemonset calico-node -n kube-system -o json | jq '.spec.template.spec.containers[0].env[] | select(.name=="CALICO_IPV4POOL_CIDR")'
+  # Description: 🌐 High-performance CNI plugin with network policy and advanced routing.
+  # Helm: N/A (Manifest-based)
+  # Kubectl: kubectl get ds -n kube-system -l k8s-app=calico
+  #          kubectl logs -n kube-system -l k8s-app=calico
   cni-calico:
     enabled: "{{ k8s_plugin_calico_enabled | default(false) | bool }}"
     namespace: "kube-system"
-    manifest: "{{ k8s_plugin_manifest_proxy_safe | default('') }}https://raw.githubusercontent.com/projectcalico/calico/v{{ k8s_plugin_calico_version | default('3.31.1')
-      }}/manifests/calico.yaml"
+    manifest: "{{ k8s_plugin_manifest_proxy_safe | default('') }}https://raw.githubusercontent.com/projectcalico/calico/v{{ k8s_plugin_calico_version | default('3.31.1') }}/manifests/calico.yaml"
     patch:
       type: strategic
       resource: "daemonset/calico-node"
@@ -39,8 +42,13 @@ k8s_plugins:
       labels: "k8s-app=calico"
 
   ################################### cni-cilium ###################################
-  # Description: eBPF-based CNI plugin providing scalable networking, security, and observability.
-  # Show latest N available versions: helm search repo cilium/cilium --versions |head -n 4
+  # Description: 🌐 Networking, observability, and security with the power of eBPF.
+  # Helm: helm repo add cilium https://helm.cilium.io
+  #       helm search repo cilium/cilium --versions | head -n 4
+  #       helm show values cilium/cilium --version 1.19.0 | sed -e '/^\s*#/d' -e '/^\s*$/d'
+  #       helm upgrade --install cilium cilium/cilium -n cilium-system
+  # Kubectl: kubectl exec -it -n cilium-system ds/cilium -- cilium status
+  #          kubectl exec -it -n cilium-system ds/cilium -- cilium connectivity test
   cni-cilium:
     enabled: "{{ k8s_plugin_cilium_enabled | default(false) | bool }}"
     namespace: "{{ k8s_plugin_cilium_namespace | default('cilium-system') }}"
@@ -69,70 +77,53 @@ k8s_plugins:
     wait:
       labels: "k8s-app=cilium"
 
+  ################################### nvidia-device-plugin ###################################
+  # Description: 🖥️ Exposes NVIDIA GPU resources to Kubernetes pods.
+  # Helm: helm repo add nvdp https://nvidia.github.io/k8s-device-plugin
+  #       helm search repo nvdp/nvidia-device-plugin --versions | head -n 4
+  #       helm show values nvdp/nvidia-device-plugin --version 0.19.1 | sed -e '/^\s*#/d' -e '/^\s*$/d'
+  #       helm upgrade --install nvdp nvdp/nvidia-device-plugin -n nvidia-device-plugin
+  # Kubectl: kubectl get ds -n nvidia-device-plugin
+  #          kubectl logs -n nvidia-device-plugin -l app.kubernetes.io/name=nvidia-device-plugin
+  nvidia-device-plugin:
+    enabled: "{{ k8s_plugin_nvidia_device_plugin_enabled | default(false) | bool }}"
+    namespace: "{{ k8s_plugin_nvidia_device_plugin_namespace | default('nvidia-device-plugin') }}"
+    helm:
+      repository:
+        name: "{{ k8s_plugin_nvidia_device_plugin_helm_repo_name | default('nvdp') }}"
+        url: "{{ k8s_plugin_nvidia_device_plugin_helm_repo_url | default('https://nvidia.github.io/k8s-device-plugin') }}"
+      release: "{{ k8s_plugin_nvidia_device_plugin_helm_release | default('nvdp') }}"
+      chart: "{{ k8s_plugin_nvidia_device_plugin_helm_chart | default('nvdp/nvidia-device-plugin') }}"
+      version: "{{ k8s_plugin_nvidia_device_plugin_version | default('0.19.1') }}"
+    wait:
+      resource: "daemonset/nvdp-nvidia-device-plugin"
+      labels: "app.kubernetes.io/name=nvidia-device-plugin"
+      condition: "Ready"
+      timeout: "5m"
+
   ################################### metallb ###################################
-  # Description: Load-balancer implementation for bare-metal Kubernetes clusters working on Layer 4
+  # Description: 🌐 Load-balancer for bare-metal Kubernetes.
+  # Helm: N/A (Manifest-based)
+  # Kubectl: kubectl get ipaddresspool -n metallb-system
+  #          kubectl get events -n metallb-system
   metallb:
     enabled: "{{ k8s_plugin_metallb_enabled | default(true) | bool }}"
     namespace: "{{ k8s_plugin_metallb_namespace | default('metallb-system') }}"
-    manifest: "{{ k8s_plugin_manifest_proxy_safe | default('') }}https://raw.githubusercontent.com/metallb/metallb/v{{ k8s_plugin_metallb_version | default('0.15.3')
-      }}/config/manifests/metallb-native.yaml"
+    manifest: "{{ k8s_plugin_manifest_proxy_safe | default('') }}https://raw.githubusercontent.com/metallb/metallb/v{{ k8s_plugin_metallb_version | default('0.15.3') }}/config/manifests/metallb-native.yaml"
     wait:
       resource: "deployment/controller"
       labels: ""
       condition: "available"
       timeout: "5m"
-    configuration:
-      data: |
-        apiVersion: metallb.io/v1beta1
-        kind: IPAddressPool
-        metadata:
-          name: {{ k8s_plugin_metallb_default_ipaddresspool_name  | default('default-pool') }} # by default
-          namespace: {{ k8s_plugin_metallb_namespace | default('metallb-system') }}
-        spec:
-          addresses: {{ k8s_plugin_metallb_default_ipaddresspool_range | default(['10.17.3.100-10.17.3.200']) }}
-        ---
-        apiVersion: metallb.io/v1beta1
-        kind: IPAddressPool
-        metadata:
-          name: {{ k8s_plugin_metallb_traefik_ipaddresspool_name  | default('traefik-pool') }} # specially for traefik
-          namespace: {{ k8s_plugin_metallb_namespace | default('metallb-system') }}
-        spec:
-          addresses: {{ k8s_plugin_metallb_traefik_ipaddresspool_range | default(['10.17.3.201-10.17.3.249']) }}
-          autoAssign: false # manually specify
-        ---
-        apiVersion: metallb.io/v1beta1
-        kind: L2Advertisement
-        metadata:
-          name: default-l2-advertisement
-          namespace: {{ k8s_plugin_metallb_namespace | default('metallb-system') }}
-        spec:
-          ipAddressPools:
-          - {{ k8s_plugin_metallb_default_ipaddresspool_name  | default('default-pool') }}
-          - {{ k8s_plugin_metallb_traefik_ipaddresspool_name  | default('traefik-pool') }}
-
-  ################################### local-path-provisioner ###################################
-  # Description: Dynamically provisions persistent local storage using host paths.
-  # Validate if patch works: kubectl get configmap local-path-config -n local-path-storage -o json | jq '.data["config.json"] | fromjson'
-  local-path-provisioner:
-    enabled: "{{ k8s_plugin_local_path_provisioner_enabled | default(false) | bool }}"
-    namespace: "local-path-storage"
-    manifest: "{{ k8s_plugin_manifest_proxy_safe | default('') }}https://raw.githubusercontent.com/rancher/local-path-provisioner/v{{ k8s_plugin_local_path_provisioner_version
-      | default('0.0.35') }}/deploy/local-path-storage.yaml"
-    patch:
-      type: json
-      resource: "configmap/local-path-config"
-      data:
-        - "op": "replace"
-          "path": "/data/config.json"
-          "value": "{{ {'nodePathMap': [{'node': 'DEFAULT_PATH_FOR_NON_LISTED_NODES', 'paths': [k8s_plugin_local_path_provisioner_default_path | default('/var/local/rancher/local-path')]}]}
-            | to_json }}"
-    wait:
-      labels: "app=local-path-provisioner"
 
   ################################### traefik ###################################
-  # Description: Cloud-native ingress controller and edge router with automatic HTTPS.
-  # Show latest N available versions: helm search repo traefik/traefik --versions |head -n 4
-  # Show supported values: helm show values traefik/traefik --version 39.0.7 | sed -e '/^\s*#/d' -e '/^\s*$/d'
+  # Description: 🌐 Cloud-native Ingress Controller.
+  # Helm: helm repo add traefik https://traefik.github.io/charts
+  #       helm search repo traefik/traefik --versions | head -n 4
+  #       helm show values traefik/traefik --version 39.0.7 | sed -e '/^\s*#/d' -e '/^\s*$/d'
+  #       helm upgrade --install traefik traefik/traefik -n traefik-system
+  # Kubectl: kubectl get ingress -A
+  #          kubectl get pods -n traefik-system
   traefik:
     enabled: "{{ k8s_plugin_traefik_enabled | default(true) | bool }}"
     namespace: "{{ k8s_plugin_traefik_namespace | default('traefik-system') }}"
@@ -149,9 +140,13 @@ k8s_plugins:
       enabled: true
 
   ################################### longhorn ###################################
-  # Description: Distributed block storage system with snapshots, backups, and DR.
-  # Show latest N available versions: helm search repo longhorn/longhorn --versions |head -n 4
-  # Show supported values: helm show values longhorn/longhorn --version 1.11.1 | sed -e '/^\s*#/d' -e '/^\s*$/d'
+  # Description: 💾 Distributed block storage.
+  # Helm: helm repo add longhorn https://charts.longhorn.io
+  #       helm search repo longhorn/longhorn --versions | head -n 4
+  #       helm show values longhorn/longhorn --version 1.11.1 | sed -e '/^\s*#/d' -e '/^\s*$/d'
+  #       helm upgrade --install longhorn longhorn/longhorn -n longhorn-system
+  # Kubectl: kubectl get nodes -l longhorn.io/node-role=manager
+  #          kubectl get volumes.longhorn.io -n longhorn-system
   longhorn:
     enabled: "{{ k8s_plugin_longhorn_enabled | default(true) | bool }}"
     depends_on: ["traefik"]
@@ -171,10 +166,13 @@ k8s_plugins:
         secret_name: "{{ k8s_plugin_longhorn_ingress_tls_secret_name | default('mkcert-wildcard-tls') }}"
 
   ################################### harbor ###################################
-  # Description: Cloud-native registry that stores, signs, and scans content.
-  # Show latest N available versions: helm search repo harbor/harbor --versions |head -n 4
-  # Show supported values: helm show values harbor/harbor --version 1.18.3 | sed -e '/^\s*#/d' -e '/^\s*$/d'
-  # Get admin password: kubectl get secret harbor-admin-password -n harbor-system -o jsonpath='{.data.HARBOR_ADMIN_PASSWORD}' | base64 -d && echo
+  # Description: 🐳 Cloud-native registry.
+  # Helm: helm repo add goharbor https://helm.goharbor.io
+  #       helm search repo goharbor/harbor --versions | head -n 4
+  #       helm show values goharbor/harbor --version 1.18.3 | sed -e '/^\s*#/d' -e '/^\s*$/d'
+  #       helm upgrade --install harbor goharbor/harbor -n harbor-system
+  # Kubectl: kubectl logs -n harbor-system -l component=core
+  #          kubectl get secret harbor-admin-password -n harbor-system -o jsonpath='{.data.HARBOR_ADMIN_PASSWORD}' | base64 -d
   harbor:
     enabled: "{{ k8s_plugin_harbor_enabled | default(true) | bool }}"
     depends_on: ["traefik", "longhorn"]
@@ -193,82 +191,14 @@ k8s_plugins:
         enabled: "{{ k8s_plugin_harbor_ingress_tls_enabled | default(true) | bool }}"
         secret_name: "{{ k8s_plugin_harbor_ingress_tls_secret_name | default('mkcert-wildcard-tls') }}"
 
-  ################################### headlamp ###################################
-  # Description: Extensible Kubernetes web UI with multi-cluster support to replace legacy kubernetes-dashboard.
-  # Show latest N available versions: helm search repo headlamp/headlamp --versions |head -n 4
-  # Show supported values: helm show values headlamp/headlamp --version 0.41.0 | sed -e '/^\s*#/d' -e '/^\s*$/d'
-  # Schema of values: https://github.com/kubernetes-sigs/headlamp/blob/v0.41.0/charts/headlamp/values.schema.json
-  # How to get token: kubectl get secret -n headlamp-system headlamp-user-token -o jsonpath='{.data.token}' | base64 --decode && echo
-  headlamp:
-    enabled: "{{ k8s_plugin_headlamp_enabled | default(true) | bool }}"
-    depends_on: ["traefik", "longhorn"]
-    namespace: "headlamp-system"
-    helm:
-      repository:
-        name: "{{ k8s_plugin_headlamp_helm_repo_name | default('headlamp') }}"
-        url: "{{ k8s_plugin_headlamp_helm_repo_url | default('https://kubernetes-sigs.github.io/headlamp/') }}"
-      release: "headlamp"
-      chart: "headlamp/headlamp"
-      version: "{{ k8s_plugin_headlamp_version | default('0.41.0') }}"
-    wait:
-      labels: "app.kubernetes.io/name=headlamp"
-    configuration:
-      data: |
-        apiVersion: v1
-        kind: ServiceAccount
-        metadata:
-          name: headlamp-user
-          namespace: "headlamp-system"
-        ---
-        apiVersion: rbac.authorization.k8s.io/v1
-        kind: ClusterRoleBinding
-        metadata:
-          name: headlamp-user
-        roleRef:
-          apiGroup: rbac.authorization.k8s.io
-          kind: ClusterRole
-          name: cluster-admin
-        subjects:
-        - kind: ServiceAccount
-          name: headlamp-user
-          namespace: "headlamp-system"
-        ---
-        apiVersion: v1
-        kind: Secret
-        metadata:
-          name: headlamp-user-token
-          namespace: "headlamp-system"
-          annotations:
-            kubernetes.io/service-account.name: "headlamp-user"
-        type: kubernetes.io/service-account-token
-    ingress:
-      tls:
-        enabled: "{{ k8s_plugin_headlamp_ingress_tls_enabled | default(true) | bool }}"
-        secret_name: "{{ k8s_plugin_headlamp_ingress_tls_secret_name | default('mkcert-wildcard-tls') }}"
-
-  ################################### metricsserver ###################################
-  # Description: Cluster-wide aggregator of resource usage metrics (CPU, memory) for HPA and kubectl top.
-  # Validate if patch works: kubectl get deployment metrics-server -n kube-system -o json | jq '.spec.template.spec.containers[0].args'
-  metrics-server:
-    enabled: "{{ k8s_plugin_metricsserver_enabled | default(false) | bool }}"
-    namespace: "kube-system"
-    manifest: "{{ k8s_plugin_manifest_proxy_safe | default('') }}https://github.com/kubernetes-sigs/metrics-server/releases/download/v{{ k8s_plugin_metricsserver_version
-      | default('0.8.1') }}/components.yaml"
-    patch:
-      type: json
-      resource: "deployment/metrics-server"
-      data: [{ "op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--kubelet-insecure-tls" }]
-    wait:
-      labels: "k8s-app=metrics-server"
-
   ################################### gitlab ###################################
-  # Description: Full DevOps platform providing Git repositories, CI/CD pipelines
-  # Show available version: helm search repo gitlab-jh/gitlab --versions |head -n 4
-  # Show supported values: helm show values gitlab-jh/gitlab --version 9.11.1 | sed -e '/^\s*#/d' -e '/^\s*$/d'
-  # Get password of `root` when logon in web:         kubectl get secret -n gitlab-system gitlab-gitlab-initial-root-password -o jsonpath="{.data.password}" | base64 --decode && echo
-  # Get password of DB user `gitlab` in postgresql:   kubectl get secret -n gitlab-system gitlab-postgresql-password -o jsonpath="{.data.postgresql-password}" | base64 -d && echo
-  # Get password of DB user `postgres` in postgresql: kubectl get secret -n gitlab-system gitlab-postgresql-password -o jsonpath="{.data.postgresql-postgres-password}" | base64 -d && echo
-  # Get password of SMTP user `cdeyin@sbkswyy.cn` in gitlab-smtp-password:   kubectl get secret -n gitlab-system gitlab-smtp-password -o jsonpath="{.data.password}" | base64 -d && echo
+  # Description: 🚀 DevOps platform (repos, CI/CD).
+  # Helm: helm repo add gitlab-jh https://charts.gitlab.cn
+  #       helm search repo gitlab-jh/gitlab --versions | head -n 4
+  #       helm show values gitlab-jh/gitlab --version 9.11.1 | sed -e '/^\s*#/d' -e '/^\s*$/d'
+  #       helm upgrade --install gitlab gitlab-jh/gitlab -n gitlab-system
+  # Kubectl: kubectl get pods -n gitlab-system -l release=gitlab
+  #          kubectl get secret gitlab-gitlab-initial-root-password -n gitlab-system -o jsonpath='{.data.password}' | base64 -d
   gitlab:
     enabled: "{{ k8s_plugin_gitlab_enabled | default(true) }}"
     depends_on: ["traefik", "longhorn"]
@@ -282,34 +212,15 @@ k8s_plugins:
       version: "{{ k8s_plugin_gitlab_version | default('9.11.1') }}"
     wait:
       labels: "app=webservice"
-    ingress:
-      tls:
-        enabled: "{{ k8s_plugin_gitlab_ingress_tls_enabled | default(true) | bool }}"
-        secret_name: "{{ k8s_plugin_gitlab_ingress_tls_secret_name | default('mkcert-wildcard-tls') }}"
-
-  ################################### gitlab-runner ###################################
-  # Description: Full DevOps platform providing Gitlab CI/CD pipelines
-  # Show available version: helm search repo gitlab-jh/gitlab-runner --versions |head -n 4
-  # Show supported values: helm show values gitlab-jh/gitlab-runner --version 0.88.1 | sed -e '/^\s*#/d' -e '/^\s*$/d'
-  # Get runner token: kubectl get secret -n gitlab-system gitlab-runner -o jsonpath='{.data.runner-token}' | base64 -d && echo
-  gitlab-runner:
-    enabled: "{{ k8s_plugin_gitlab_runner_enabled | default(true) }}"
-    depends_on: ["gitlab"]
-    namespace: "{{ k8s_plugin_gitlab_namespace | default('gitlab-system') }}" # Reuse gitlab namespace
-    helm:
-      repository:
-        name: "{{ k8s_plugin_gitlab_runner_helm_repo_name | default('gitlab-jh') }}" # Reuse gitlab repo
-        url: "{{ k8s_plugin_gitlab_runner_helm_repo_url | default('https://charts.gitlab.cn') }}"
-      release: "{{ k8s_plugin_gitlab_runner_helm_release | default('gitlab-runner') }}"
-      chart: "{{ k8s_plugin_gitlab_runner_helm_chart | default('gitlab-jh/gitlab-runner') }}"
-      version: "{{ k8s_plugin_gitlab_runner_version | default('0.88.1') }}"
-    wait:
-      labels: "app=gitlab-runner"
 
   ################################### openproject ###################################
-  # Description: Open-source project management tool (alternative to Jira)
-  # Show latest N available versions: helm search repo openproject/openproject --versions |head -n 4
-  # Show supported values: helm show values openproject/openproject --version 13.5.1 | sed -e '/^\s*#/d' -e '/^\s*$/d'
+  # Description: 📊 Open-source project management software.
+  # Helm: helm repo add openproject https://charts.openproject.org
+  #       helm search repo openproject/openproject --versions | head -n 4
+  #       helm show values openproject/openproject --version 13.5.1 | sed -e '/^\s*#/d' -e '/^\s*$/d'
+  #       helm upgrade --install op openproject/openproject -n openproject-system
+  # Kubectl: kubectl describe deploy openproject -n openproject-system
+  #          kubectl logs -n openproject-system -l app=openproject
   openproject:
     enabled: "{{ k8s_plugin_openproject_enabled | default(true) }}"
     depends_on: ["traefik", "longhorn"]
@@ -323,29 +234,3 @@ k8s_plugins:
       version: "{{ k8s_plugin_openproject_version | default('13.5.1') }}"
     wait:
       labels: "app=openproject"
-    ingress:
-      tls:
-        enabled: "{{ k8s_plugin_openproject_ingress_tls_enabled | default(true) | bool }}"
-        secret_name: "{{ k8s_plugin_openproject_ingress_tls_secret_name | default('mkcert-wildcard-tls') }}"
-
-  ################################### nvidia-device-plugin ###################################
-  # Description: NVIDIA GPU device plugin for Kubernetes — exposes GPU resources to pods.
-  # Helm repo: https://nvidia.github.io/k8s-device-plugin
-  # Show latest N available versions: helm search repo nvdp --versions | head -n 4
-  # Show supported values: helm show values nvdp/nvidia-device-plugin --version 0.17.1
-  # Docs: https://github.com/NVIDIA/k8s-device-plugin
-  nvidia-device-plugin:
-    enabled: "{{ k8s_plugin_nvidia_device_plugin_enabled | default(false) | bool }}"
-    namespace: "{{ k8s_plugin_nvidia_device_plugin_namespace | default('nvidia-device-plugin') }}"
-    helm:
-      repository:
-        name: "{{ k8s_plugin_nvidia_device_plugin_helm_repo_name | default('nvdp') }}"
-        url: "{{ k8s_plugin_nvidia_device_plugin_helm_repo_url | default('https://nvidia.github.io/k8s-device-plugin') }}"
-      release: "{{ k8s_plugin_nvidia_device_plugin_helm_release | default('nvdp') }}"
-      chart: "{{ k8s_plugin_nvidia_device_plugin_helm_chart | default('nvdp/nvidia-device-plugin') }}"
-      version: "{{ k8s_plugin_nvidia_device_plugin_version | default('0.17.1') }}"
-    wait:
-      resource: "daemonset/nvdp-nvidia-device-plugin"
-      labels: "app.kubernetes.io/name=nvidia-device-plugin"
-      condition: "Ready"
-      timeout: "5m"

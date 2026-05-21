@@ -7,6 +7,36 @@
   changed_when: false
   failed_when: false
 
+- name: Synchronize CA certificate from controller before joining
+  block:
+    - name: Get CA certificate content from controller
+      ansible.builtin.slurp:
+        src: /usr/local/share/ca-certificates/rootCA.crt
+      delegate_to: "{{ groups['controllers'][0] }}"
+      register: ca_cert_content
+      failed_when: false
+      changed_when: false
+
+    - name: Install CA certificate on new node
+      become: true
+      ansible.builtin.copy:
+        content: "{{ ca_cert_content['content'] | b64decode }}"
+        dest: /usr/local/share/ca-certificates/rootCA.crt
+        mode: "0644"
+      when: ca_cert_content.content is defined and ca_cert_content.content | length > 0
+
+    - name: Update system trust store on new node
+      become: true
+      ansible.builtin.command: update-ca-certificates
+      when: ca_cert_content.content is defined and ca_cert_content.content | length > 0
+      changed_when: true
+      failed_when: false
+
+  rescue:
+    - name: Warn about CA sync failure but continue
+      ansible.builtin.debug:
+        msg: "⚠️  Failed to synchronize CA certificate. The node may not trust internal services (e.g., Harbor). You can manually run the Traefik playbook later to fix this."
+
 - name: Join to cluster if not already joined
   when: node_check_result.rc != 0
   block:

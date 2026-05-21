@@ -1,0 +1,30 @@
+---
+# roles/nvidia-driver/tasks/install-specific-version.yml
+
+- name: Validate driver version is specified
+  ansible.builtin.fail:
+    msg: "nvidia_driver_version must be specified when using specific_version method"
+  when: nvidia_driver_version | length == 0
+
+- name: Install specific NVIDIA driver version
+  ansible.builtin.package:
+    name: "nvidia-driver-{{ nvidia_driver_version }}"
+    state: present
+    update_cache: true
+  register: pkg_result
+  until: pkg_result is success
+  retries: 5
+  delay: 10
+
+- name: Verify installation completed
+  ansible.builtin.shell: |
+    dpkg -l | grep "nvidia-driver-{{ nvidia_driver_version }}" | grep '^ii'
+  register: installed_packages
+  changed_when: false
+  failed_when: false
+
+- name: Display installed packages
+  ansible.builtin.debug:
+    msg: |
+      Installed NVIDIA driver {{ nvidia_driver_version }}:
+      {{ installed_packages.stdout }}

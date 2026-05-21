@@ -6,6 +6,8 @@
     msg: "NVIDIA Container Toolkit installation is {{ 'enabled' if nct_enabled else 'disabled' }}"
 
 - name: Install NVIDIA Container Toolkit
+  delegate_to: "{{ node_item }}"
+  become: true
   when: nct_enabled | bool
   block:
     - name: Gather system facts if not available

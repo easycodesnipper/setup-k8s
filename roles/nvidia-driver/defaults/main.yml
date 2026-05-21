@@ -1,0 +1,21 @@
+---
+# roles/nvidia-driver/defaults/main.yml
+
+# Enable or disable NVIDIA driver installation
+nvidia_driver_enabled: "{{ nct_enabled | default(false) | bool }}"
+
+# Driver installation method
+# Options: autoinstall (recommended), specific_version, manual
+nvidia_driver_install_method: "autoinstall"
+
+# Specific driver version to install (only used when install_method is 'specific_version')
+nvidia_driver_version: ""
+
+# Whether to reboot after driver installation
+nvidia_driver_reboot: true
+
+# Timeout for waiting for system to come back online after reboot
+nvidia_driver_reboot_timeout: 300
+
+# DKMS configuration (for kernel module automatic rebuild)
+nvidia_driver_dkms: true

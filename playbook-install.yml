@@ -13,8 +13,6 @@
       tags: prereq
     - role: containerd
       tags: containerd
-    - role: nvidia-container-toolkit
-      tags: nct
     - role: kubernetes
       tags: kubernetes
   tags: prepare

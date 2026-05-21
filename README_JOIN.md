@@ -83,11 +83,26 @@ k8s-gpu-worker-1 ansible_host=10.17.3.30 ansible_user=user
 new-gpu-worker-1 ansible_host=10.17.3.50 ansible_user=user
 ```
 
-Enable NVIDIA Container Toolkit:
+**Important**: When installing the `nvidia-device-plugin`, the playbook will automatically execute in this order:
+
+1. **Install NVIDIA GPU Driver** (on all gpu-workers nodes)
+2. **Install NVIDIA Container Toolkit** (configure containerd for GPU)
+3. **Deploy NVIDIA Device Plugin** (Helm Chart for Kubernetes)
+
+This ensures proper dependency chain before exposing GPU resources to Kubernetes.
+
+Enable automatic installation:
 
 ```yaml
-# group_vars/gpu-workers.yml
-nvidia_container_toolkit_enabled: true
+# group_vars/gpu-workers.yml or vars in playbook
+k8s_plugin_nvidia_device_plugin_enabled: true
+```
+
+Or use command line:
+
+```bash
+ansible-playbook -i inventory.ini playbook-plugins.yml \
+  -e "k8s_plugins_only=nvidia-device-plugin"
 ```
 
 ## Examples

@@ -18,7 +18,7 @@
           register: current_pause
           loop: "{{ range(1, 4) | list }}"
           loop_control:
-            break_when: "current_pause.user_input | lower != 'y'"
+            break_when: "(current_pause.results | last).user_input | default('') | lower != 'y'"
           run_once: true # noqa: run-once[task]
           delegate_to: localhost
 

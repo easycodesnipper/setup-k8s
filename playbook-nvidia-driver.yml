@@ -1,0 +1,59 @@
+---
+# playbook-nvidia-driver.yml
+# Install NVIDIA GPU drivers on GPU worker nodes
+
+- name: Install NVIDIA GPU Drivers on GPU Workers
+  hosts: gpu-workers
+  become: true
+  gather_facts: true
+  
+  vars:
+    # Installation method: autoinstall (recommended) or specific_version
+    nvidia_driver_install_method: "autoinstall"
+    
+    # Specific version (only used when install_method is 'specific_version')
+    # nvidia_driver_version: "550"
+    
+    # Reboot after installation
+    nvidia_driver_reboot: true
+    
+    # Reboot timeout in seconds
+    nvidia_driver_reboot_timeout: 300
+
+  tasks:
+    - name: Display installation configuration
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          NVIDIA Driver Installation Configuration
+          ========================================
+          Target Hosts: {{ ansible_play_hosts | join(', ') }}
+          Install Method: {{ nvidia_driver_install_method }}
+          {% if nvidia_driver_install_method == 'specific_version' %}
+          Driver Version: {{ nvidia_driver_version }}
+          {% endif %}
+          Auto Reboot: {{ nvidia_driver_reboot }}
+          ========================================
+
+    - name: Install NVIDIA GPU driver
+      ansible.builtin.include_role:
+        name: nvidia-driver
+      vars:
+        node_item: "{{ inventory_hostname }}"
+
+    - name: Verify driver installation
+      ansible.builtin.shell: |
+        echo "=== NVIDIA SMI Output ==="
+        nvidia-smi
+        echo ""
+        echo "=== Loaded Kernel Modules ==="
+        lsmod | grep nvidia
+        echo ""
+        echo "=== PCI Devices ==="
+        lspci | grep -i nvidia
+      register: verification
+      changed_when: false
+
+    - name: Display verification results
+      ansible.builtin.debug:
+        var: verification.stdout

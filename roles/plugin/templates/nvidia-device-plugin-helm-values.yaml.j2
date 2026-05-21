@@ -1,5 +1,8 @@
 # roles/plugin/templates/nvidia-device-plugin-helm-values.yaml.j2
 ---
+# Runtime class for GPU access
+runtimeClassName: "nvidia"
+
 # Plugin configuration via inline ConfigMap
 config:
   default: "default"
@@ -14,3 +17,23 @@ config:
           passDeviceSpecs: {{ k8s_plugin_nvidia_device_plugin_pass_device_specs | default(false) | bool | lower }}
           deviceListStrategy: "{{ k8s_plugin_nvidia_device_plugin_device_list_strategy | default('envvar') }}"
           deviceIDStrategy: "{{ k8s_plugin_nvidia_device_plugin_device_id_strategy | default('uuid') }}"
+
+# Node scheduling configuration for GPU nodes
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: gpu
+          operator: In
+          values:
+          - "true"
+
+tolerations:
+- key: nvidia.com/gpu
+  operator: Exists
+  effect: NoSchedule
+- key: gpu-node
+  operator: Equal
+  value: "true"
+  effect: NoSchedule

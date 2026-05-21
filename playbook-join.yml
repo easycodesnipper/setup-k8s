@@ -66,8 +66,8 @@
   become: false
   gather_facts: false
   vars:
-    # Get the list of hosts from the target_hosts group
-    target_nodes: "{{ groups[target_hosts | default('new_workers')] }}"
+    # Get the list of hosts from the target_hosts group (safely handle missing groups)
+    target_nodes: "{{ groups.get(target_hosts | default('new_workers'), []) }}"
   tasks:
     - name: Wait for each node to be ready
       ansible.builtin.shell: |
@@ -105,4 +105,55 @@
           Check status manually:
             kubectl get nodes
             kubectl describe node <node-name>
-      when: not (all_nodes_ready | default(false))
+      when: >
+        all_nodes_ready | default(false) | bool == false
+
+- name: Label GPU nodes automatically
+  hosts: controllers[0]
+  become: false
+  gather_facts: false
+  vars:
+    target_nodes: "{{ groups.get(target_hosts | default('new_workers'), []) }}"
+  tasks:
+    - name: Check if this is a GPU worker group
+      ansible.builtin.set_fact:
+        is_gpu_group: "{{ 'gpu' in (target_hosts | default('new_workers')) }}"
+
+    - name: Install NVIDIA driver on GPU nodes (if not already installed)
+      ansible.builtin.include_role:
+        name: nvidia-driver
+      loop: "{{ target_nodes }}"
+      loop_control:
+        loop_var: node_item
+      when: is_gpu_group | bool
+      vars:
+        nvidia_driver_enabled: true
+        nvidia_driver_reboot: true
+
+    - name: Label GPU nodes with gpu=true
+      ansible.builtin.command: >
+        kubectl label nodes {{ item }} gpu=true --overwrite
+      loop: "{{ target_nodes }}"
+      when: is_gpu_group | bool
+      changed_when: true
+      failed_when: false
+      register: label_result
+
+    - name: Display GPU node labeling results
+      ansible.builtin.debug:
+        msg: "GPU nodes labeled successfully"
+      when: is_gpu_group | bool and label_result is succeeded
+
+    - name: Apply standard taint to GPU nodes
+      ansible.builtin.command: >
+        kubectl taint nodes {{ item }} gpu-node=true:NoSchedule --overwrite
+      loop: "{{ target_nodes }}"
+      when: is_gpu_group | bool
+      changed_when: true
+      failed_when: false
+      register: taint_result
+
+    - name: Display GPU node tainting results
+      ansible.builtin.debug:
+        msg: "GPU nodes tainted successfully"
+      when: is_gpu_group | bool and taint_result is succeeded

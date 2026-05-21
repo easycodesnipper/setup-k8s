@@ -1,0 +1,86 @@
+---
+# roles/nvidia-driver/tasks/install-ubuntu.yml
+
+- name: Install build dependencies for NVIDIA driver
+  ansible.builtin.package:
+    name:
+      - dkms
+      - build-essential
+      - "linux-headers-{{ ansible_kernel }}"
+    state: present
+    update_cache: true
+  register: pkg_result
+  until: pkg_result is success
+  retries: 5
+  delay: 10
+
+- name: Install ubuntu-drivers-common package
+  ansible.builtin.package:
+    name: ubuntu-drivers-common
+    state: present
+  register: pkg_result
+  until: pkg_result is success
+  retries: 5
+  delay: 10
+
+- name: Get recommended driver version
+  ansible.builtin.shell: |
+    ubuntu-drivers devices | grep recommended | awk '{print $NF}'
+  register: recommended_driver
+  changed_when: false
+
+- name: Display recommended driver
+  ansible.builtin.debug:
+    msg: "Recommended NVIDIA driver: {{ recommended_driver.stdout }}"
+
+- name: Install NVIDIA driver via autoinstall
+  ansible.builtin.shell: |
+    DEBIAN_FRONTEND=noninteractive ubuntu-drivers autoinstall
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+  register: install_result
+  changed_when: "'installed' in install_result.stdout or 'installed' in install_result.stderr"
+  failed_when: install_result.rc != 0
+
+- name: Verify installation completed
+  ansible.builtin.shell: |
+    dpkg -l | grep nvidia-driver | grep '^ii'
+  register: installed_packages
+  changed_when: false
+  failed_when: false
+
+- name: Display installed packages
+  ansible.builtin.debug:
+    msg: |
+      Installed NVIDIA packages:
+      {{ installed_packages.stdout }}
+
+- name: Check if reboot is required (kernel version mismatch)
+  ansible.builtin.shell: |
+    current_kernel=$(uname -r)
+    # Extract base version (e.g., 6.8.0-117 from 6.8.0-117-generic)
+    kernel_base=$(echo $current_kernel | sed 's/-generic$//')
+    
+    # Check if NVIDIA modules are installed for current kernel
+    if dpkg -l | grep -q "linux-modules-nvidia.*${kernel_base}"; then
+      echo "REBOOT_NOT_REQUIRED"
+    else
+      echo "REBOOT_REQUIRED"
+    fi
+  register: reboot_check
+  changed_when: false
+  failed_when: false
+
+- name: Set reboot requirement fact
+  ansible.builtin.set_fact:
+    reboot_required: "{{ 'REBOOT_REQUIRED' in reboot_check.stdout }}"
+
+- name: Display reboot requirement
+  ansible.builtin.debug:
+    msg: |
+      {% if reboot_required | bool %}
+      ⚠️  Reboot required: NVIDIA kernel modules were installed for a different kernel version.
+      The system will reboot to load the new kernel with NVIDIA drivers.
+      {% else %}
+      ✅ No reboot required: NVIDIA modules match current kernel.
+      {% endif %}
