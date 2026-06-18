@@ -9,6 +9,9 @@ containerd_registry_mirror_enabled: true
 ### Common Variables
 k8s_version: "1.34.2"
 
+# Base domain for all plugin Ingress hosts: <plugin_name>.{{ k8s_host_domain }}
+k8s_host_domain: "localdomain"
+
 ### Plugins Variables
 k8s_plugin_metallb_ip_address_pool_default:
   - "10.17.3.240-10.17.3.250"

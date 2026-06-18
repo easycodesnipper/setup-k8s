@@ -228,7 +228,7 @@
         <h3>📌 Method 1: Graphical interface (recommended)</h3>
         <ol>
             <li><strong>Download the certificate</strong><br>
-                Use the button above or open <code class="inline-code">http://ca.localdomain/rootCA.pem</code> → save as <code class="inline-code">rootCA.crt</code> (rename extension to .crt).</li>
+                Use the button above or open <code class="inline-code">http://ca.{{ k8s_host_domain | default('localdomain') }}/rootCA.pem</code> → save as <code class="inline-code">rootCA.crt</code> (rename extension to .crt).</li>
             <li><strong>Open Local Machine certificate store</strong><br>
                 Press <code class="inline-code">Win + R</code>, type <code class="inline-code">certlm.msc</code> and press <strong>Enter</strong> (accept UAC).</li>
             <li><strong>Remove old certificate (force overwrite)</strong><br>
@@ -241,7 +241,7 @@
 
         <h3>🖥️ Method 2: PowerShell (as Administrator)</h3>
         <pre><code># Force overwrite root CA from HTTP
-$url = "http://ca.localdomain/rootCA.pem"
+$url = "http://ca.{{ k8s_host_domain | default('localdomain') }}/rootCA.pem"
 $storeLoc = "Cert:\LocalMachine\Root"
 $tempPem = "$env:TEMP\rootCA_temp.pem"
 $tempDer = "$env:TEMP\rootCA_temp.der"
@@ -264,7 +264,7 @@ Write-Host "Root CA imported successfully" -ForegroundColor Green</code></pre>
         <h4>For Chromium‑based browsers (Chrome, Edge, Brave, etc.)</h4>
         <ol>
             <li>Type <code class="inline-code">chrome://net-internals/#hsts</code> (or <code class="inline-code">edge://net-internals/#hsts</code>).</li>
-            <li>In the <strong>Delete domain security policies</strong> section, enter your internal domain (e.g. <code class="inline-code">ca.localdomain</code>) and click <strong>Delete</strong>.</li>
+            <li>In the <strong>Delete domain security policies</strong> section, enter your internal domain (e.g. <code class="inline-code">ca.{{ k8s_host_domain | default('localdomain') }}</code>) and click <strong>Delete</strong>.</li>
         </ol>
 
         <div class="success">✅ Restart your browser after these steps.</div>
@@ -277,7 +277,7 @@ Write-Host "Root CA imported successfully" -ForegroundColor Green</code></pre>
 
         <h3>📥 1. System Trust Store</h3>
         <pre><code>sudo apt update && sudo apt install -y wget
-sudo wget -O /usr/local/share/ca-certificates/rootCA.crt http://ca.localdomain/rootCA.pem
+sudo wget -O /usr/local/share/ca-certificates/rootCA.crt http://ca.{{ k8s_host_domain | default('localdomain') }}/rootCA.pem
 sudo update-ca-certificates --fresh</code></pre>
         <div class="note">📌 Extension <strong>must be .crt</strong> for the system trust store to recognize it.</div>
 
@@ -292,7 +292,7 @@ certutil -d sql:$HOME/.pki/nssdb -A -t "CT,C,C" -n "K8s-New-Root" -i /usr/local/
 
         <h3>🧪 3. Verification</h3>
         <pre><code># Verify system trust
-openssl s_client -connect gitlab.localdomain:443 -CAfile /etc/ssl/certs/ca-certificates.crt </dev/null
+openssl s_client -connect gitlab.{{ k8s_host_domain | default('localdomain') }}:443 -CAfile /etc/ssl/certs/ca-certificates.crt </dev/null
 
 # Verify browser database
 certutil -d sql:$HOME/.pki/nssdb -L | grep "K8s-New-Root"</code></pre>
@@ -306,7 +306,7 @@ certutil -d sql:$HOME/.pki/nssdb -L | grep "K8s-New-Root"</code></pre>
 
         <h3>📥 1. System Trust Store</h3>
         <pre><code>sudo dnf install -y wget
-sudo wget -O /etc/pki/ca-trust/source/anchors/rootCA.crt http://ca.localdomain/rootCA.pem
+sudo wget -O /etc/pki/ca-trust/source/anchors/rootCA.crt http://ca.{{ k8s_host_domain | default('localdomain') }}/rootCA.pem
 sudo update-ca-trust extract</code></pre>
         <div class="warning">💡 To ensure a clean overwrite, remove the old bundle first:
             <pre><code>sudo rm -f /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem

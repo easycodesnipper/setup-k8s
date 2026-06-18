@@ -14,7 +14,7 @@ defaultSettings:
 ingress:
   enabled: {{ k8s_plugin_longhorn_ingress_enabled | default(true) | bool }}
   ingressClassName: {{ k8s_plugin_longhorn_ingress_class_name | default('traefik') }}
-  host: {{ k8s_plugin_longhorn_ingress_host | default('longhorn.localdomain') }}
+  host: {{ 'longhorn.' + k8s_host_domain | default('localdomain') }}
   annotations:
     # 1. Always include websecure if TLS is on
     traefik.ingress.kubernetes.io/router.entrypoints: "{{ 'web, websecure' if tls_enabled else 'web' }}"

@@ -5,7 +5,7 @@
   block:
     - name: "Harbor API | Wait for service to be online"
       ansible.builtin.uri:
-        url: "https://{{ k8s_plugin_harbor_ingress_host | default('harbor.localdomain') }}/api/v2.0/ping"
+        url: "https://{{ 'harbor.' + k8s_host_domain | default('localdomain') }}/api/v2.0/ping"
         method: GET
         validate_certs: false
         status_code: 200
@@ -30,7 +30,7 @@
 
     - name: "Harbor API | Create registry endpoint for {{ mirror_item.name }}"
       ansible.builtin.uri:
-        url: "https://{{ k8s_plugin_harbor_ingress_host | default('harbor.localdomain') }}/api/v2.0/registries"
+        url: "https://{{ 'harbor.' + k8s_host_domain | default('localdomain') }}/api/v2.0/registries"
         method: POST
         user: "admin"
         password: "{{ _api_password }}"
@@ -50,7 +50,7 @@
 
     - name: "Harbor API | Get endpoint ID for {{ mirror_item.name }}"
       ansible.builtin.uri:
-        url: "https://{{ k8s_plugin_harbor_ingress_host | default('harbor.localdomain') }}/api/v2.0/registries?name={{ mirror_item.name }}"
+        url: "https://{{ 'harbor.' + k8s_host_domain | default('localdomain') }}/api/v2.0/registries?name={{ mirror_item.name }}"
         method: GET
         user: "admin"
         password: "{{ _api_password }}"
@@ -60,7 +60,7 @@
 
     - name: "Harbor API | Create project for: {{ mirror_item.name }}"
       ansible.builtin.uri:
-        url: "https://{{ k8s_plugin_harbor_ingress_host | default('harbor.localdomain') }}/api/v2.0/projects"
+        url: "https://{{ 'harbor.' + k8s_host_domain | default('localdomain') }}/api/v2.0/projects"
         method: POST
         user: "admin"
         password: "{{ _api_password }}"

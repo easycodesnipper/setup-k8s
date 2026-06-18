@@ -3,7 +3,7 @@
 
 {# ansible localhost -m template -a "src=roles/plugin/templates/headlamp-helm-values.yaml.j2 dest=/tmp/headlamp-values.yaml" #}
 
-{%- set hosts_list = k8s_plugin_headlamp_ingress_hosts | default(['headlamp.localdomain']) %}
+{%- set hosts_list = k8s_plugin_headlamp_ingress_hosts | default(['headlamp.' + k8s_host_domain | default('localdomain')]) %}
 {%- set tls_enabled = k8s_plugin_headlamp_ingress_tls_enabled | default(true) | bool %}
 {%- set secret_name = k8s_plugin_headlamp_ingress_tls_secret_name | default('mkcert-wildcard-tls') %}
 

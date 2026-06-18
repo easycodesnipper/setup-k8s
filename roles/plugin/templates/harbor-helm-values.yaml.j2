@@ -1,6 +1,6 @@
 # roles/plugin/templates/harbor-helm-values.yaml.j2
 
-{%- set harbor_host = k8s_plugin_harbor_ingress_host | default('harbor.localdomain') -%}
+{%- set harbor_host = 'harbor.' + k8s_host_domain | default('localdomain') -%}
 {%- set tls_enabled = k8s_plugin_harbor_ingress_tls_enabled | default(true) | bool -%}
 {%- set storage_class_rwo = k8s_plugin_harbor_storage_class | default('longhorn') -%}
 {%- set storage_class_rwx = k8s_plugin_harbor_storage_class_rwx | default('longhorn-rwx') -%}

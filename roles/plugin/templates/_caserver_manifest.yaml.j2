@@ -64,7 +64,7 @@ metadata:
 spec:
   ingressClassName: {{ k8s_plugin_ca_ingress_class | default('traefik') }} 
   rules:
-    - host: {{ k8s_plugin_ca_host | default('ca.localdomain') }}
+    - host: {{ 'ca.' + k8s_host_domain | default('localdomain') }}
       http:
         paths:
           - path: /

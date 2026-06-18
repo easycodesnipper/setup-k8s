@@ -3,7 +3,7 @@
 
 {# ansible localhost -m template -a "src=roles/plugin/templates/devops-openproject-helm-values.yaml.j2 dest=/tmp/devops-openproject-values.yaml" #}
 
-{%- set app_host = k8s_plugin_openproject_ingress_host | default('openproject.localdomain') %}
+{%- set app_host = 'openproject.' + k8s_host_domain | default('localdomain') %}
 {%- set tls_enabled = k8s_plugin_openproject_ingress_tls_enabled | default(true) | bool %}
 {%- set secret_name = k8s_plugin_openproject_ingress_tls_secret | default('mkcert-wildcard-tls') %}
 {%- set storage_class_rwo = k8s_plugin_openproject_storage_class | default('longhorn') -%}
@@ -25,7 +25,7 @@ hocuspocus:
     imagePullPolicy: "{{ k8s_plugin_openproject_image_pull_policy | default('IfNotPresent') }}"
 
 openproject:
-  hostName: "{{ k8s_plugin_openproject_ingress_host | default('openproject.localdomain') }}"
+  hostName: "{{ 'openproject.' + k8s_host_domain | default('localdomain') }}"
   https: {{ k8s_plugin_openproject_ingress_tls_enabled | default(true) | lower }}
   seed: "{{ k8s_plugin_openproject_seed | default('super-secret-seed-phrase') }}"
   passwordSecret: "{{ k8s_plugin_openproject_existing_secret | default('openproject-passwords') }}"
@@ -51,7 +51,7 @@ postgresql:
 ingress:
   enabled: true
   ingressClassName: "{{ k8s_plugin_openproject_ingress_class | default('traefik') }}"
-  host: "{{ k8s_plugin_openproject_ingress_host | default('openproject.localdomain') }}"
+  host: "{{ 'openproject.' + k8s_host_domain | default('localdomain') }}"
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: "{{ 'web,websecure' if k8s_plugin_openproject_ingress_tls_enabled | default(true) else 'web' }}"
 {% if tls_enabled %}
