@@ -207,7 +207,9 @@
   vars:
     _wait_dict: "{{ plugin_config.wait | default({}) }}"
     _labels: "{{ _wait_dict.labels | default('') }}"
-    _selector: "{{ _labels | join(',') if _labels is sequence else _labels }}"
+    # Fix: single-line expression avoids whitespace artifacts from multi-line Jinja2 blocks.
+    # Strings are iterable in Jinja2, so we must exclude them before calling join(',').
+    _selector: "{{ (_labels | join(',')) if (_labels is iterable and _labels is not string) else _labels }}"
     _raw_condition: "{{ _wait_dict.condition | default('Ready') }}"
     _condition: "{{ _raw_condition if 'condition=' in _raw_condition else 'condition=' + _raw_condition }}"
     _resource: "{{ _wait_dict.resource | default('pod') }}"
