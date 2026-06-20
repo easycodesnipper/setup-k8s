@@ -45,7 +45,7 @@ k8s_plugins:
   # Description: 🌐 Networking, observability, and security with the power of eBPF.
   # Helm: helm repo add cilium https://helm.cilium.io
   #       helm search repo cilium/cilium --versions | head -n 4
-  #       helm show values cilium/cilium --version 1.19.0 | sed -e '/^\s*#/d' -e '/^\s*$/d'
+  #       helm show values cilium/cilium --version 1.19.5 | sed -e '/^\s*#/d' -e '/^\s*$/d'
   #       helm upgrade --install cilium cilium/cilium -n cilium-system
   # Kubectl: kubectl exec -it -n cilium-system ds/cilium -- cilium status
   #          kubectl exec -it -n cilium-system ds/cilium -- cilium connectivity test
@@ -58,7 +58,7 @@ k8s_plugins:
         url: "{{ k8s_plugin_cilium_helm_repo_url | default('https://helm.cilium.io') }}"
       release: "cilium"
       chart: "cilium/cilium"
-      version: "{{ k8s_plugin_cilium_version | default('1.19.0') }}"
+      version: "{{ k8s_plugin_cilium_version | default('1.19.5') }}"
       values:
         operator:
           replicas: "{{ k8s_cilium_operator_replicas | default(2) | int }}"
@@ -120,7 +120,7 @@ k8s_plugins:
   # Description: 🌐 Cloud-native Ingress Controller.
   # Helm: helm repo add traefik https://traefik.github.io/charts
   #       helm search repo traefik/traefik --versions | head -n 4
-  #       helm show values traefik/traefik --version 39.0.7 | sed -e '/^\s*#/d' -e '/^\s*$/d'
+  #       helm show values traefik/traefik --version 41.0.0 | sed -e '/^\s*#/d' -e '/^\s*$/d'
   #       helm upgrade --install traefik traefik/traefik -n traefik-system
   # Kubectl: kubectl get ingress -A
   #          kubectl get pods -n traefik-system
@@ -133,7 +133,7 @@ k8s_plugins:
         url: "{{ k8s_plugin_traefik_helm_repo_url | default('https://traefik.github.io/charts') }}"
       release: "traefik"
       chart: "traefik/traefik"
-      version: "{{ k8s_plugin_traefik_version | default('39.0.7') }}"
+      version: "{{ k8s_plugin_traefik_version | default('41.0.0') }}"
     wait:
       labels: "app.kubernetes.io/instance=traefik"
     ingress:

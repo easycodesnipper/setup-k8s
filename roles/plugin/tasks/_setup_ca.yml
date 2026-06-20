@@ -54,10 +54,10 @@
               | selectattr('value.ingress.tls.enabled', 'defined')
               | selectattr('value.ingress.tls.enabled', 'equalto', true)
               | map(attribute='key')
-              | map('regex_replace', '^(.*)$', '\1.' ~ (k8s_domain | default('localdomain')))
+              | map('regex_replace', '^(.*)$', '\1.' ~ (k8s_host_domain | default('localdomain')))
               | list
             ) + [
-              '*.' ~ (k8s_domain | default('localdomain')),
+              '*.' ~ (k8s_host_domain | default('localdomain')),
               'localhost',
               '127.0.0.1'
             ]

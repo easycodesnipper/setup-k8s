@@ -2,7 +2,7 @@
 - name: Install CNI plugin
   ansible.builtin.include_role:
     name: plugin
-    tasks_from: cni-{{ k8s_cni | default('flannel') }}
+    tasks_from: cni-{{ k8s_cni | default('flannel') }} # refer to roles/plugin/tasks/cni-flannel.yml
 
 - name: Wait for all nodes to be Ready
   ansible.builtin.command: >

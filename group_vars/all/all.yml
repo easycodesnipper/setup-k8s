@@ -9,6 +9,8 @@ containerd_registry_mirror_enabled: true
 ### Common Variables
 k8s_version: "1.34.2"
 
+k8s_image_repository: "k8s.m.daocloud.io"
+
 # Base domain for all plugin Ingress hosts: <plugin_name>.{{ k8s_host_domain }}
 k8s_host_domain: "localdomain"
 
