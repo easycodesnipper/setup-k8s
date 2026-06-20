@@ -16,7 +16,7 @@
       ansible.builtin.replace:
         path: "{{ containerd_config_file }}"
         after: "\\[plugins\\.'io\\.containerd\\.cri\\.v1\\.images'\\.registry\\]"
-        before: "^\\["
+        before: "\\[plugins\\.'io\\.containerd\\.cri\\.v1\\.images'\\.image_decryption\\]"
         regexp: "(\\s+)config_path = .*"
         replace: "\\1config_path = \"{{ containerd_registry_mirror_config_path }}\""
       notify: Restart containerd

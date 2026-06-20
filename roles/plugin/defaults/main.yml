@@ -200,7 +200,7 @@ k8s_plugins:
   # Kubectl: kubectl get pods -n gitlab-system -l release=gitlab
   #          kubectl get secret gitlab-gitlab-initial-root-password -n gitlab-system -o jsonpath='{.data.password}' | base64 -d
   gitlab:
-    enabled: "{{ k8s_plugin_gitlab_enabled | default(true) }}"
+    enabled: "{{ k8s_plugin_gitlab_enabled | default(false) }}"
     depends_on: ["traefik", "longhorn"]
     namespace: "{{ k8s_plugin_gitlab_namespace | default('gitlab-system') }}"
     helm:
@@ -222,7 +222,7 @@ k8s_plugins:
   # Kubectl: kubectl describe deploy openproject -n openproject-system
   #          kubectl logs -n openproject-system -l app=openproject
   openproject:
-    enabled: "{{ k8s_plugin_openproject_enabled | default(true) }}"
+    enabled: "{{ k8s_plugin_openproject_enabled | default(false) }}"
     depends_on: ["traefik", "longhorn"]
     namespace: "{{ k8s_plugin_openproject_namespace | default('openproject-system') }}"
     helm:
