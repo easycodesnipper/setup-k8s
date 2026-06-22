@@ -8,6 +8,20 @@
     - name: Test network reachability
       ansible.builtin.ping:
       tags: always
+
+    - name: Map Kubernetes node hostnames to /etc/hosts
+      become: true
+      ansible.builtin.blockinfile:
+        path: /etc/hosts
+        marker: "# {mark} ANSIBLE MANAGED K8S NODES"
+        block: |
+{% for host in groups['k8s_cluster'] %}
+          {{ hostvars[host]['ansible_host'] | default(hostvars[host]['inventory_hostname']) }} {{ host }}
+{% endfor %}
+      delegate_to: localhost
+      run_once: true
+      tags: always
+
   roles:
     - role: prerequisite
       tags: prereq

@@ -190,7 +190,7 @@ k8s_plugins:
   #       helm show values goharbor/harbor --version 1.18.3 | sed -e '/^\s*#/d' -e '/^\s*$/d'
   #       helm upgrade --install harbor goharbor/harbor -n harbor-system
   # Kubectl: kubectl logs -n harbor-system -l component=core
-  #          kubectl get secret harbor-admin-password -n harbor-system -o jsonpath='{.data.HARBOR_ADMIN_PASSWORD}' | base64 -d
+  #          kubectl get secret harbor-admin-password -n harbor-system -o jsonpath='{.data.HARBOR_ADMIN_PASSWORD}' | base64 -d | xargs echo
   harbor:
     enabled: "{{ k8s_plugin_harbor_enabled | default(true) | bool }}"
     depends_on: ["traefik", "longhorn"]
