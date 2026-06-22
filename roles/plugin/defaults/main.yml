@@ -123,7 +123,7 @@ k8s_plugins:
           name: {{ k8s_plugin_metallb_traefik_ipaddresspool_name | default('traefik-pool') }}
           namespace: {{ k8s_plugin_metallb_namespace | default('metallb-system') }}
         spec:
-          addresses: {{ (k8s_plugin_ingress_loadbalancer_ips | default(['10.17.3.222'])) + (k8s_plugin_metallb_ip_address_pool_default | default(['10.17.3.240-10.17.3.250'])) }}
+          addresses: {{ (k8s_plugin_ingress_loadbalancer_ips | default(['10.17.3.222']) | map('regex_replace', '^(\d+\.\d+\.\d+\.\d+)$', '\1/32') | list) + (k8s_plugin_metallb_ip_address_pool_default | default(['10.17.3.240-10.17.3.250'])) }}
         ---
         apiVersion: metallb.io/v1beta1
         kind: L2Advertisement
