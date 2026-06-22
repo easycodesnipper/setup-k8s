@@ -115,6 +115,24 @@ k8s_plugins:
       labels: ""
       condition: "available"
       timeout: "5m"
+    configuration:
+      data: |
+        apiVersion: metallb.io/v1beta1
+        kind: IPAddressPool
+        metadata:
+          name: {{ k8s_plugin_metallb_traefik_ipaddresspool_name | default('traefik-pool') }}
+          namespace: {{ k8s_plugin_metallb_namespace | default('metallb-system') }}
+        spec:
+          addresses: {{ (k8s_plugin_ingress_loadbalancer_ips | default(['10.17.3.222'])) + (k8s_plugin_metallb_ip_address_pool_default | default(['10.17.3.240-10.17.3.250'])) }}
+        ---
+        apiVersion: metallb.io/v1beta1
+        kind: L2Advertisement
+        metadata:
+          name: {{ k8s_plugin_metallb_traefik_ipaddresspool_name | default('traefik-pool') }}
+          namespace: {{ k8s_plugin_metallb_namespace | default('metallb-system') }}
+        spec:
+          ipAddressPools:
+            - {{ k8s_plugin_metallb_traefik_ipaddresspool_name | default('traefik-pool') }}
 
   ################################### traefik ###################################
   # Description: 🌐 Cloud-native Ingress Controller.
