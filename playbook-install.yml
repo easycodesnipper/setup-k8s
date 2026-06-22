@@ -96,3 +96,9 @@
   when:
     - hostvars['localhost']['should_install_plugins'] | default(true) | bool
   tags: postinstall-plugins
+
+- name: Update /etc/hosts with ingress domain mappings
+  import_playbook: playbook-hosts-mapping.yml
+  when:
+    - hostvars['localhost']['should_install_plugins'] | default(true) | bool
+  tags: postinstall-plugins

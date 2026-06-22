@@ -1,0 +1,8 @@
+---
+- name: Update /etc/hosts with ingress domain mappings
+  hosts: controllers
+  gather_facts: false
+  tasks:
+    - name: Include ingress domain mapping tasks
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/roles/plugin/tasks/_ingress_domain_mapping.yml"
+      run_once: true
