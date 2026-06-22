@@ -4,3 +4,13 @@
 k8s_ca_namespace: "{{ k8s_plugin_ca_namespace | default('ca-system') }}"
 k8s_ca_tls_secret_name: "{{ k8s_plugin_ca_tls_secret_name | default('mkcert-wildcard-tls') }}"
 k8s_ca_ingress_class: "{{ k8s_plugin_ca_ingress_class | default('traefik') }}"
+
+# Certificate domains (wildcard covers all *.<host_domain> subdomains)
+k8s_ca_cert_domains: >-
+  {{
+    [
+      '*.' ~ (k8s_host_domain | default('localdomain')),
+      'localhost',
+      '127.0.0.1'
+    ] + (k8s_ca_extra_domains | default([]))
+  }}
