@@ -1,0 +1,5 @@
+---
+# roles/ca/tasks/main.yml
+
+- name: Setup CA (mkcert + distribute certificates)
+  ansible.builtin.include_tasks: _setup_ca.yml

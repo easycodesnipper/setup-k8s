@@ -237,9 +237,3 @@
   retries: 5
   delay: 30
   tags: plugin-post-config
-
-- name: "Plugin {{ plugin_name }} | Create ingress domain mapping in /etc/hosts"
-  ansible.builtin.include_tasks: _ingress_domain_mapping.yml
-  when:
-    - plugin_config.ingress is defined
-    - plugin_config.ingress.enabled | default(true) | bool

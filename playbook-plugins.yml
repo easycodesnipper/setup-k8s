@@ -4,6 +4,10 @@
   gather_facts: true
   roles:
     - role: plugin
+  post_tasks:
+    - name: Include ingress domain mapping
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/_ingress_domain_mapping.yml"
+      run_once: true
 
 # An example: how to install specified plugins
-# ansible-playbook -i inventory.ini playbook-postinstall-plugins.yml   -e "k8s_plugins_only=cni-calico,metallb,metrics-server"
+# ansible-playbook -i inventory.ini playbook-plugins.yml   -e "k8s_plugins_only=cni-calico,metallb,metrics-server"

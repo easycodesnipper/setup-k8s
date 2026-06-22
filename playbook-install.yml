@@ -53,6 +53,14 @@
     - role: cni
   tags: cni
 
+- name: Setup CA (mkcert) and distribute certificates
+  hosts: controllers
+  become: false
+  gather_facts: true
+  roles:
+    - role: ca
+  tags: ca
+
 - name: Confirmation gate to install plugins
   hosts: localhost
   gather_facts: false

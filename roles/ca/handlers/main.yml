@@ -1,0 +1,15 @@
+---
+# roles/ca/handlers/main.yml
+
+- name: Update System Trust Store
+  become: true
+  ansible.builtin.command: >-
+    {{ (hostvars[node_item].ansible_os_family == 'RedHat') | ternary(
+        'update-ca-trust extract',
+        'update-ca-certificates --fresh'
+    ) }}
+  delegate_to: "{{ node_item }}"
+  loop: "{{ groups['k8s_cluster'] + ['localhost'] }}"
+  loop_control:
+    loop_var: node_item
+  changed_when: true

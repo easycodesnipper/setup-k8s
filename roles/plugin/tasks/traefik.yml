@@ -1,8 +1,6 @@
 ---
 # roles/plugin/tasks/traefik.yml
 
-- name: Setup CA
-  ansible.builtin.include_tasks: _setup_ca.yml
 - name: Install Traefik Ingress
   ansible.builtin.include_tasks: _install_plugin.yml
   vars:

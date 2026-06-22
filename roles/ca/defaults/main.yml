@@ -1,0 +1,6 @@
+---
+# roles/ca/defaults/main.yml
+
+k8s_ca_namespace: "{{ k8s_plugin_ca_namespace | default('ca-system') }}"
+k8s_ca_tls_secret_name: "{{ k8s_plugin_ca_tls_secret_name | default('mkcert-wildcard-tls') }}"
+k8s_ca_ingress_class: "{{ k8s_plugin_ca_ingress_class | default('traefik') }}"
