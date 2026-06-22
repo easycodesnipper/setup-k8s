@@ -15,9 +15,9 @@
         path: /etc/hosts
         marker: "# {mark} ANSIBLE MANAGED K8S NODES"
         block: |
-{% for host in groups['k8s_cluster'] %}
+          {% for host in groups['k8s_cluster'] %}
           {{ hostvars[host]['ansible_host'] | default(hostvars[host]['inventory_hostname']) }} {{ host }}
-{% endfor %}
+          {% endfor %}
       delegate_to: localhost
       run_once: true
       tags: always
